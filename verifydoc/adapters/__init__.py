@@ -14,6 +14,7 @@ _REGISTRY = {
     "mock": "verifydoc.adapters.mock:MockAdapter",
     "text-search": "verifydoc.adapters.text_search:TextSearchAdapter",
     "paddleocr-vl": "verifydoc.adapters.paddleocr_vl:PaddleOCRVLAdapter",
+    "rapidocr": "verifydoc.adapters.rapidocr:RapidOCRAdapter",
     "dots-ocr": "verifydoc.adapters.dots_ocr:DotsOCRAdapter",
     "docling": "verifydoc.adapters.docling:DoclingAdapter",
     "api-vlm": "verifydoc.adapters.api_vlm:APIVLMAdapter",

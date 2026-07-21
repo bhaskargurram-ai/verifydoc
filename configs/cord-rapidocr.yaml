@@ -1,0 +1,11 @@
+# Real-model experiment: RapidOCR (PP-OCR models via ONNX) on CORD receipts.
+# Architecture-independent (CPU or GPU) — install: pip install rapidocr onnxruntime
+dataset: cord
+split: validation
+limit: 100
+extractor: rapidocr
+seed: 7
+k: 1   # deterministic OCR: token-prob (rec scores) + grounding are the live signals
+calibration_fraction: 0.5
+alphas: [0.02, 0.05]
+n_boot: 300

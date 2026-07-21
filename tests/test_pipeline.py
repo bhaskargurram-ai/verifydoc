@@ -316,3 +316,47 @@ class TestTextSearchAliases:
         preds = {p.path: p.value for p in TextSearchAdapter().extract(doc, schema)}
         assert preds["total_price"] == "45,500"
         assert preds["cashprice"] == "50,000"
+
+
+class TestRapidOCRNormalization:
+    """Pure result-normalization logic (no SDK, no network)."""
+
+    def test_v1_tuple_results(self):
+        from verifydoc.adapters.rapidocr import _iter_results, _token_from_poly
+        from verifydoc.types import Page
+
+        raw = ([[[[0, 0], [10, 0], [10, 5], [0, 5]], "TOTAL", 0.98]], 0.1)
+        out = _iter_results(raw, "v1")
+        assert out[0][0] == "TOTAL" and out[0][1] == pytest.approx(0.98)
+        page = Page(page=0, width=100, height=100)
+        tok = _token_from_poly(*out[0], page)
+        assert tok.text == "TOTAL"
+        assert tok.bbox == pytest.approx((0.0, 0.0, 0.1, 0.05))
+        assert tok.score == pytest.approx(0.98)
+
+    def test_v2_object_results(self):
+        from verifydoc.adapters.rapidocr import _iter_results
+
+        class FakeResult:
+            boxes = [[[0, 0], [10, 0], [10, 5], [0, 5]]]
+            txts = ["INV-7"]
+            scores = [0.9]
+
+        out = _iter_results(FakeResult(), "v2")
+        assert out == [("INV-7", pytest.approx(0.9), FakeResult.boxes[0])]
+
+    def test_empty_and_degenerate(self):
+        from verifydoc.adapters.rapidocr import _iter_results, _token_from_poly
+        from verifydoc.types import Page
+
+        assert _iter_results(([], 0.0), "v1") == []
+        page = Page(page=0, width=100, height=100)
+        # zero-area box rejected
+        assert _token_from_poly("x", 0.9, [[5, 5], [5, 5], [5, 5], [5, 5]], page) is None
+        # blank text rejected
+        assert _token_from_poly("  ", 0.9, [[0, 0], [9, 0], [9, 9], [0, 9]], page) is None
+
+    def test_registered(self):
+        from verifydoc.adapters import _REGISTRY
+
+        assert "rapidocr" in _REGISTRY

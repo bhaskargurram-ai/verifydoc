@@ -1,0 +1,9 @@
+# Real-model experiment: RapidOCR (PP-OCR models via ONNX) on FUNSD forms.
+dataset: funsd
+split: testing
+extractor: rapidocr
+seed: 7
+k: 1
+calibration_fraction: 0.5
+alphas: [0.02, 0.05]
+n_boot: 300
