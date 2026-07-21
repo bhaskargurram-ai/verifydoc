@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.3.0 — 2026-07-21
+
+First **real-model** results (issue #3).
+
+- **RapidOCR adapter** (PP-OCRv6 via ONNX Runtime) — architecture-independent,
+  the robust real-OCR default; runs where paddle's GPU wheels don't.
+- **PaddleOCR adapter** validated end-to-end (PP-OCRv5 pipeline) on a real GPU.
+- **Real results on CORD + FUNSD** for both extractors, committed under
+  `paper/generated/` with an honest reading (`REAL_MODELS_RESULTS.md`):
+  grounding/learned signals rank errors (AUROC 0.74–0.89) while
+  verbalized/consensus don't; grounding-conditioned gap +0.83/+0.84. The
+  floor field-finder's low recall forces conformal abstention at 2–5% — the
+  documented motivation for the selective framing.
+- **Harness**: `extractor:` dispatch via the adapter registry; CORD/FUNSD
+  image export (`with_images`); schema `x-aliases` for on-page label variants.
+- **Learned combiner** (`verifydoc/confidence/learned.py`) as a harness row.
+- **Grounder ~1000× faster** (exact-match fast path, token-anchored fuzzy
+  scan, token-overlap for paragraph values) — FUNSD grounding hours → seconds.
+- **GPU runbook** (`docs/REAL_MODELS.md`) with the hard-won version pins
+  (`paddlex==3.1.0`, `langchain<0.2`, Blackwell caveat, dots.ocr→vllm).
+- dots.ocr: adapter stub validated to load/generate with `transformers==4.51.3`;
+  full run deferred to its vllm serving path (issue #3).
+
 ## v0.2.0 — 2026-07-21
 
 Real data, faster grounding, learned fusion.

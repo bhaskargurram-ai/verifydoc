@@ -1,9 +1,15 @@
 """PaddleOCR adapter (local, single-GPU default extractor).
 
-Supports both the PaddleOCR 3.x pipeline API (``predict``) and the legacy
-2.x API (``ocr``); detection is automatic at construction. All SDK use is
-isolated here; the token -> field mapping is the shared, unit-tested
-``_ocr_common`` pathway, which also feeds recognition scores into the
+Runs the PaddleOCR **PP-OCR detection+recognition pipeline** (PP-OCRv5), not
+the separate PaddleOCR-VL VLM; the registry name ``paddleocr-vl`` is kept for
+config stability. Supports both the PaddleOCR 3.x pipeline API (``predict``)
+and the legacy 2.x API (``ocr``); detection is automatic at construction.
+
+Verified install (see docs/REAL_MODELS.md): needs a paddle-supported GPU arch
+(Ampere/Ada; NOT Blackwell sm_120), ``paddlex==3.1.0``, and ``langchain<0.2``.
+
+All SDK use is isolated here; the token -> field mapping is the shared,
+unit-tested ``_ocr_common`` pathway, which feeds recognition scores into the
 token-prob confidence signal.
 """
 
