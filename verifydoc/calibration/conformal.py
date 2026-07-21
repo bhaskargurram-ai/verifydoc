@@ -48,7 +48,7 @@ class ConformalAbstention:
         n_accepted = np.arange(1, c.size + 1)
         n_errors = np.cumsum(1.0 - y_sorted)
         bound = (n_errors + 1.0) / (n_accepted + 1.0)
-        boundary = np.append(c_sorted[:-1] > c_sorted[1:], True)
+        boundary: np.ndarray = np.append(c_sorted[:-1] > c_sorted[1:], True)
         ok = (bound <= self.alpha) & boundary
         if ok.any():
             k = int(np.flatnonzero(ok)[-1])

@@ -146,7 +146,7 @@ def _risk_threshold(conf: np.ndarray, alpha: float) -> float:
     c = np.sort(conf)[::-1]
     predicted_risk = np.cumsum(1.0 - c) / np.arange(1, c.size + 1)
     # valid cut points: where the next confidence is strictly lower (or the end)
-    boundary = np.append(c[:-1] > c[1:], True)
+    boundary: np.ndarray = np.append(c[:-1] > c[1:], True)
     ok = (predicted_risk <= alpha) & boundary
     if not ok.any():
         return float("inf")  # accept nothing

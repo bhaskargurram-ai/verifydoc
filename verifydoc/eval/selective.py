@@ -70,7 +70,7 @@ def coverage_at_risk(
     c, y = _sorted_desc(conf, correct)
     k = np.arange(1, y.size + 1)
     risk = np.cumsum(1.0 - y) / k
-    boundary = np.append(c[:-1] > c[1:], True)
+    boundary: np.ndarray = np.append(c[:-1] > c[1:], True)
     ok = (risk <= alpha) & boundary
     if not ok.any():
         return 0.0, float("inf")

@@ -51,4 +51,6 @@ def logit(p: np.ndarray) -> np.ndarray:
 
 
 def sigmoid(z: np.ndarray) -> np.ndarray:
-    return 1.0 / (1.0 + np.exp(-z))
+    from scipy.special import expit  # numerically stable for extreme log-odds
+
+    return np.asarray(expit(z), dtype=float)

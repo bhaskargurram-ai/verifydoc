@@ -50,8 +50,10 @@ def bootstrap_ci(
         idx = rng.integers(0, n, size=n)
         stats[b] = statistic(*(c[idx] for c in cols))
     tail = (1.0 - ci) / 2.0
-    lo, hi = np.quantile(stats, [tail, 1.0 - tail])
-    return BootstrapResult(point=point, lo=float(lo), hi=float(hi), ci=ci, n_boot=n_boot)
+    quantiles: np.ndarray = np.quantile(stats, [tail, 1.0 - tail])
+    return BootstrapResult(
+        point=point, lo=float(quantiles[0]), hi=float(quantiles[1]), ci=ci, n_boot=n_boot
+    )
 
 
 def paired_permutation_test(

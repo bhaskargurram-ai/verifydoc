@@ -92,6 +92,11 @@ ignore_missing_imports = true
 module = "tests.*"
 disallow_untyped_defs = false
 
+# newer numpy stubs use PEP 695 `type` statements that a 3.11 target can't parse
+[[tool.mypy.overrides]]
+module = ["numpy", "numpy.*"]
+follow_imports = "skip"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
