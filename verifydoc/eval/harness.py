@@ -70,7 +70,7 @@ class SignalData:
         return conf, corr
 
 
-def collect(bench: Sequence[Any], adapter: MockAdapter, k: int) -> dict[str, Any]:
+def collect(bench: Sequence[Any], adapter: Any, k: int) -> dict[str, Any]:
     """Run the adapter over the benchmark and pool per-signal field outcomes."""
     signals: dict[str, SignalData] = {name: SignalData() for name in SIGNALS}
     extraction_reports = []
@@ -150,13 +150,19 @@ def run_benchmark(cfg: dict[str, Any], out_dir: str | Path) -> dict[str, Any]:
         bench = cord.load(split=cfg.get("split", "validation"), limit=cfg.get("limit", 100))
     else:
         raise ValueError(f"unknown dataset {dataset!r} (available: synthetic, cord)")
-    adapter = MockAdapter(
-        gold={item.doc.doc_id: item.golds for item in bench},
-        error_rate=cfg.get("error_rate", 0.15),
-        omit_rate=cfg.get("omit_rate", 0.05),
-        hallucinate_rate=cfg.get("hallucinate_rate", 0.05),
-        seed=cfg.get("seed", 0),
-    )
+    extractor = cfg.get("extractor", "mock")
+    if extractor == "mock":
+        adapter: Any = MockAdapter(
+            gold={item.doc.doc_id: item.golds for item in bench},
+            error_rate=cfg.get("error_rate", 0.15),
+            omit_rate=cfg.get("omit_rate", 0.05),
+            hallucinate_rate=cfg.get("hallucinate_rate", 0.05),
+            seed=cfg.get("seed", 0),
+        )
+    else:
+        from verifydoc.adapters import get_adapter
+
+        adapter = get_adapter(extractor)
     pooled = collect(bench, adapter, k=cfg.get("k", 5))
     signals: dict[str, SignalData] = pooled["signals"]
 
@@ -171,6 +177,7 @@ def run_benchmark(cfg: dict[str, Any], out_dir: str | Path) -> dict[str, Any]:
     n_boot = cfg.get("n_boot", 300)
     summary: dict[str, Any] = {
         "dataset": dataset,
+        "extractor": extractor,
         "n_docs": len(bench),
         "n_cal": len(cal_ids),
         "n_test": len(test_ids),

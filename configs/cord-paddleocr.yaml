@@ -1,0 +1,14 @@
+# Pinned real-model experiment (issue #3): PaddleOCR-VL on CORD receipts.
+# Needs a 24 GB GPU + `pip install paddlepaddle-gpu paddleocr` and CORD
+# images exported to disk — see docs/REAL_MODELS.md.
+dataset: cord
+split: validation
+limit: 100
+extractor: paddleocr-vl   # any name from the adapter registry
+seed: 7
+k: 5
+calibration_fraction: 0.5
+alphas: [0.02, 0.05]
+n_boot: 300
+# record at run time for the paper table header:
+#   paddleocr==<version>, GPU model, driver version

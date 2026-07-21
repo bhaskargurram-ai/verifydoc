@@ -12,6 +12,8 @@ top of their own text layers; the paper reports it as the no-model baseline.
 
 from __future__ import annotations
 
+import re
+
 from verifydoc.adapters.base import ExtractorAdapter
 from verifydoc.types import Document, FieldPrediction, Schema
 
@@ -40,14 +42,16 @@ class TextSearchAdapter(ExtractorAdapter):
 
     @staticmethod
     def _find(doc: Document, label: str) -> tuple[str, int, str] | None:
+        # word-boundary match so "total" never fires inside "Subtotal"
+        pattern = re.compile(rf"\b{re.escape(label)}\b")
         for page in doc.pages:
             if not page.text:
                 continue
             for line in page.text.split("\n"):
-                idx = line.casefold().find(label)
-                if idx == -1:
+                match = pattern.search(line.casefold())
+                if match is None:
                     continue
-                value = line[idx + len(label) :].lstrip(" \t:—–-").strip()
+                value = line[match.end() :].lstrip(" \t:—–-").strip()
                 if value:
                     return value, page.page, line
         return None
