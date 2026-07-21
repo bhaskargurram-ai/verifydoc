@@ -23,8 +23,11 @@ cov:
 	pytest --cov=verifydoc --cov-report=term-missing
 
 # Regenerate every table/figure in paper/ from pinned configs + seeds.
+# (cord/funsd download their source data once into data/, then cache)
 results:
 	$(PY) scripts/run_benchmark.py --config configs/demo.yaml --out paper/generated
+	$(PY) scripts/run_benchmark.py --config configs/cord.yaml --out paper/generated/cord
+	$(PY) scripts/run_benchmark.py --config configs/funsd.yaml --out paper/generated/funsd
 
 demo:
 	streamlit run ui/streamlit_app.py

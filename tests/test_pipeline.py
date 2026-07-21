@@ -271,3 +271,29 @@ class TestCLI:
         result = CliRunner().invoke(app, ["version"])
         assert result.exit_code == 0
         assert "0.1.0" in result.output
+
+
+class TestGrounderLongValues:
+    def test_paragraph_value_grounds_by_token_overlap(self):
+        words = " ".join(f"tok{i}" for i in range(30))
+        doc = document_from_text("long", [f"HEADER LINE\n{words}\nFOOTER"])
+        value = " ".join(f"tok{i}" for i in range(30))  # exact 30-token paragraph
+        (out,) = ground_predictions([FieldPrediction(path="p", value=value)], doc)
+        assert out.grounding is not None
+        assert out.grounding.support == pytest.approx(1.0)
+
+    def test_partially_corrupted_paragraph_partial_support(self):
+        words = " ".join(f"tok{i}" for i in range(30))
+        doc = document_from_text("long", [words])
+        corrupted = " ".join(f"tok{i}" if i % 3 else "zzz" for i in range(30))  # 10 of 30 wrong
+        (out,) = ground_predictions(
+            [FieldPrediction(path="p", value=corrupted)], doc, min_support=0.5
+        )
+        assert out.grounding is not None
+        assert 0.6 < out.grounding.support < 0.75  # 2*20/(30+30)
+
+    def test_hallucinated_paragraph_stays_ungrounded(self):
+        doc = document_from_text("long", ["totally different page content here"])
+        ghost = " ".join(f"ghost{i}" for i in range(20))
+        (out,) = ground_predictions([FieldPrediction(path="p", value=ghost)], doc)
+        assert out.grounding is None

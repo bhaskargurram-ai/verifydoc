@@ -11,7 +11,8 @@ extraction quality, calibration, selective risk, and grounding
 |---|---|---|---|---|
 | `synthetic` | generated in-repo (`benchmark/datasets/synthetic.py`) | Apache-2.0 | shipped, CI-run | yes (from layout) |
 | `cord` | naver-clova-ix/cord-v2 (HF hub) | CC-BY-4.0 (verify at release) | shipped — real text layers, harness-run | yes (located word quads) |
-| `funsd` / `sroie` / `docile` / `xfund` | official downloads | varies — some research-only | planned | planned |
+| `funsd` | guillaumejaume.github.io/FUNSD | research use | shipped — real forms, harness-run | yes (annotated answer boxes) |
+| `sroie` / `docile` / `xfund` | official downloads | varies — some research-only | planned | planned |
 
 ## Redistribution policy (PROJECT.md §5.H)
 

@@ -50,29 +50,115 @@ def _locate(value: str, doc: Document, min_support: float) -> Grounding | None:
     return best
 
 
+def _window_bbox(window: list) -> tuple[float, float, float, float]:
+    return (
+        min(w.bbox[0] for w in window),
+        min(w.bbox[1] for w in window),
+        max(w.bbox[2] for w in window),
+        max(w.bbox[3] for w in window),
+    )
+
+
 def _best_window(target: str, page: Page) -> tuple[tuple[float, float, float, float], float] | None:
-    """Best contiguous word window by string similarity to the target."""
+    """Best contiguous word window by string similarity to the target.
+
+    Fast path: correctly extracted values match some window verbatim, so an
+    exact normalized comparison runs first and returns support 1.0 without
+    any edit-distance work. The fuzzy scan only runs for values that do not
+    appear verbatim (the interesting, possibly-hallucinated ones), and prunes
+    windows whose length alone caps similarity below the current best.
+    """
     words = page.words
     if not words:
         return None
     n_target_tokens = max(1, len(target.split()))
+    max_width = n_target_tokens + 1
+    normalized = [normalize_text(w.text).casefold() for w in words]
+
+    for start in range(len(words)):
+        joined = normalized[start]
+        for width in range(1, min(max_width, len(words) - start) + 1):
+            if width > 1:
+                joined = f"{joined} {normalized[start + width - 1]}"
+            if joined == target:
+                return _window_bbox(words[start : start + width]), 1.0
+
+    # fuzzy scan only over candidate starts: windows anchored at a word that
+    # exactly matches one of the target's tokens (a partially-corrupted value
+    # keeps most tokens intact; a pure hallucination gets no anchors at all,
+    # which is the correct fast "ungrounded" answer)
+    target_tokens = target.split()
+    if len(target_tokens) > _LONG_TARGET_TOKENS:
+        return _best_window_by_tokens(target_tokens, words, normalized)
+    if len(target_tokens) == 1:
+        starts: list[int] = list(range(len(words)))
+    else:
+        token_set = set(target_tokens)
+        anchor_starts = {
+            max(0, i - offset)
+            for i, ntext in enumerate(normalized)
+            if ntext in token_set
+            for offset in range(len(target_tokens) + 1)
+        }
+        starts = sorted(anchor_starts)
+
     best_score = 0.0
     best_bbox: tuple[float, float, float, float] | None = None
-    for start in range(len(words)):
-        for width in range(1, min(n_target_tokens + 2, len(words) - start + 1)):
-            window = words[start : start + width]
-            text = normalize_text(" ".join(w.text for w in window)).casefold()
-            score = normalized_levenshtein_similarity(text, target)
+    for start in starts:
+        joined = normalized[start]
+        for width in range(1, min(max_width, len(words) - start) + 1):
+            if width > 1:
+                joined = f"{joined} {normalized[start + width - 1]}"
+            # similarity <= 1 - |len difference| / max(len): prune hopeless windows
+            len_cap = 1.0 - abs(len(joined) - len(target)) / max(len(joined), len(target), 1)
+            if len_cap <= best_score:
+                continue
+            score = normalized_levenshtein_similarity(joined, target)
             if score > best_score:
-                bbox = (
-                    min(w.bbox[0] for w in window),
-                    min(w.bbox[1] for w in window),
-                    max(w.bbox[2] for w in window),
-                    max(w.bbox[3] for w in window),
-                )
-                best_score, best_bbox = score, bbox
-                if score >= 1.0:
-                    return bbox, score
+                best_score = score
+                best_bbox = _window_bbox(words[start : start + width])
+    if best_bbox is None:
+        return None
+    return best_bbox, best_score
+
+
+_LONG_TARGET_TOKENS = 12
+
+
+def _best_window_by_tokens(
+    target_tokens: list[str], words: list, normalized: list[str]
+) -> tuple[tuple[float, float, float, float], float] | None:
+    """Paragraph-length values: score fixed-width windows by token overlap.
+
+    # DECISION: char-level edit distance is O(len^2) and blows up on
+    # paragraph answers (FUNSD has 40+-token values); for targets longer than
+    # _LONG_TARGET_TOKENS we slide a window of exactly len(target) tokens and
+    # score 2*|multiset intersection| / (|window| + |target|) — same [0,1]
+    # support semantics, linear cost, pinned by tests.
+    """
+    from collections import Counter
+
+    width = len(target_tokens)
+    if len(words) < 1:
+        return None
+    target_count = Counter(target_tokens)
+    token_set = set(target_tokens)
+    starts = sorted(
+        {
+            max(0, i - offset)
+            for i, token in enumerate(normalized)
+            if token in token_set
+            for offset in (0, width // 2, width - 1)
+        }
+    )
+    best_score, best_bbox = 0.0, None
+    for start in starts:
+        window = normalized[start : start + width]
+        overlap = sum((Counter(window) & target_count).values())
+        score = 2.0 * overlap / (len(window) + width)
+        if score > best_score:
+            best_score = score
+            best_bbox = _window_bbox(words[start : start + len(window)])
     if best_bbox is None:
         return None
     return best_bbox, best_score

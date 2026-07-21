@@ -1,0 +1,12 @@
+# FUNSD slice: real scanned forms, question->answer gold fields with exact
+# annotated answer boxes; extractor errors simulated at seeded rates.
+dataset: funsd
+split: testing        # 50 forms; use `training` (149) for scale
+seed: 7
+k: 5
+error_rate: 0.18
+omit_rate: 0.04
+hallucinate_rate: 0.06
+calibration_fraction: 0.5
+alphas: [0.02, 0.05]
+n_boot: 300

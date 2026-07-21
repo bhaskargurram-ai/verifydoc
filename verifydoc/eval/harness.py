@@ -75,12 +75,24 @@ def collect(bench: Sequence[Any], adapter: Any, k: int) -> dict[str, Any]:
     signals: dict[str, SignalData] = {name: SignalData() for name in SIGNALS}
     extraction_reports = []
     pred_boxes, gold_boxes, box_correct = [], [], []
+    learned_ids: list[str] = []
+    learned_sigs: list[dict[str, float | None]] = []
+    learned_correct: list[int] = []
 
     for item in bench:
         samples = adapter.extract_samples(item.doc, item.schema, k)
         base = ground_predictions(samples[0], item.doc)
         cons = ground_predictions(consensus(samples), item.doc)
 
+        sig_by_path: dict[str, dict[str, float | None]] = {
+            p.path: {
+                "consensus": p.confidence,
+                "grounding": grounding_confidence(p),
+                "token_prob": token_prob_confidence(p),
+                "verbalized": verbalized_confidence(p),
+            }
+            for p in cons
+        }
         variants: dict[str, list[FieldPrediction]] = {
             "token_prob": [
                 p.model_copy(update={"confidence": token_prob_confidence(p) or 0.5}) for p in base
@@ -93,18 +105,7 @@ def collect(bench: Sequence[Any], adapter: Any, k: int) -> dict[str, Any]:
             ],
             "consensus": cons,
             "combined": [
-                p.model_copy(
-                    update={
-                        "confidence": combined_confidence(
-                            {
-                                "consensus": p.confidence,
-                                "grounding": grounding_confidence(p),
-                                "token_prob": token_prob_confidence(p),
-                                "verbalized": verbalized_confidence(p),
-                            }
-                        )
-                    }
-                )
+                p.model_copy(update={"confidence": combined_confidence(sig_by_path[p.path])})
                 for p in cons
             ],
         }
@@ -115,6 +116,10 @@ def collect(bench: Sequence[Any], adapter: Any, k: int) -> dict[str, Any]:
                 data.doc_ids.append(item.doc.doc_id)
                 data.conf.append(fs.confidence)
                 data.correct.append(int(fs.correct))
+                if name == "combined":
+                    learned_ids.append(item.doc.doc_id)
+                    learned_sigs.append(sig_by_path[fs.path])
+                    learned_correct.append(int(fs.correct))
 
         base_report = score_fields(base, item.golds)
         extraction_reports.append(base_report)
@@ -131,6 +136,7 @@ def collect(bench: Sequence[Any], adapter: Any, k: int) -> dict[str, Any]:
         "signals": signals,
         "extraction_reports": extraction_reports,
         "boxes": (pred_boxes, gold_boxes, box_correct),
+        "learned": (learned_ids, learned_sigs, learned_correct),
     }
 
 
@@ -148,8 +154,12 @@ def run_benchmark(cfg: dict[str, Any], out_dir: str | Path) -> dict[str, Any]:
         from benchmark.datasets import cord
 
         bench = cord.load(split=cfg.get("split", "validation"), limit=cfg.get("limit", 100))
+    elif dataset == "funsd":
+        from benchmark.datasets import funsd
+
+        bench = funsd.load(split=cfg.get("split", "testing"), limit=cfg.get("limit"))
     else:
-        raise ValueError(f"unknown dataset {dataset!r} (available: synthetic, cord)")
+        raise ValueError(f"unknown dataset {dataset!r} (available: synthetic, cord, funsd)")
     extractor = cfg.get("extractor", "mock")
     if extractor == "mock":
         adapter: Any = MockAdapter(
@@ -183,11 +193,28 @@ def run_benchmark(cfg: dict[str, Any], out_dir: str | Path) -> dict[str, Any]:
         "n_test": len(test_ids),
     }
 
+    # learned combiner row: logistic fusion fit ONLY on calibration-split fields
+    # (# DECISION: its cal-split confidences are in-sample for the conformal
+    # threshold fit, same convention as calibrators fit on the same split)
+    if cfg.get("learned_combiner", True):
+        from verifydoc.confidence.learned import LearnedCombiner
+
+        l_ids, l_sigs, l_corr = pooled["learned"]
+        cal_sigs = [s for d, s in zip(l_ids, l_sigs) if d in cal_set]
+        cal_y = [y for d, y in zip(l_ids, l_corr) if d in cal_set]
+        combiner = LearnedCombiner().fit(cal_sigs, cal_y)
+        signals["learned"] = SignalData(
+            doc_ids=list(l_ids),
+            conf=[float(v) for v in combiner.predict(l_sigs)],
+            correct=list(l_corr),
+        )
+
+    signal_names = list(SIGNALS) + (["learned"] if "learned" in signals else [])
     calib_rows: list[dict[str, Any]] = []
     select_rows: list[dict[str, Any]] = []
     conformal_rows: list[dict[str, Any]] = []
     figures: dict[str, Any] = {}
-    for name in SIGNALS:
+    for name in signal_names:
         cal_conf, cal_corr = signals[name].subset(cal_set)
         test_conf, test_corr = signals[name].subset(test_set)
         variants: dict[str, list[float]] = {"raw": list(test_conf)}
