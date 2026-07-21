@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.python-version
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Data / models — never commit datasets or weights (commit loaders + hashes)
+data/
+datasets_cache/
+*.ckpt
+*.safetensors
+*.onnx
+*.pt
+*.pth
+models/
+model_cache/
+
+# Results scratch (checked-in tables live under paper/)
+results/
+outputs/
+*.log
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

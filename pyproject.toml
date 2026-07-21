@@ -1,0 +1,99 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "verifydoc"
+version = "0.1.0"
+description = "A trust layer for document -> structured-JSON extraction: calibrated per-field confidence, source grounding, and abstention on top of any extractor."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+authors = [{ name = "Bhaskar Gurram" }]
+keywords = [
+    "document-extraction",
+    "ocr",
+    "calibration",
+    "selective-prediction",
+    "confidence",
+    "hallucination",
+    "abstention",
+    "grounding",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "pydantic>=2.5",
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "scikit-learn>=1.3",
+    "pandas>=2.1",
+    "matplotlib>=3.8",
+    "typer>=0.9",
+]
+
+[project.optional-dependencies]
+pdf = ["pdfplumber>=0.10", "pypdfium2>=4.24", "pillow>=10.0"]
+ui = ["streamlit>=1.30", "pillow>=10.0"]
+data = ["datasets>=2.16"]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "ruff>=0.4",
+    "black>=24.1",
+    "mypy>=1.8",
+    "pre-commit>=3.6",
+]
+
+[project.scripts]
+verifydoc = "verifydoc.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/bhaskargurram-ai/verifydoc"
+Repository = "https://github.com/bhaskargurram-ai/verifydoc"
+Issues = "https://github.com/bhaskargurram-ai/verifydoc/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["verifydoc"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = ["E501", "B905", "SIM108"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+check_untyped_defs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["verifydoc"]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedError"]
