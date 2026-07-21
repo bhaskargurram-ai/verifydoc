@@ -139,3 +139,16 @@ class TestPathUtils:
 
     def test_unflatten_sparse_array(self):
         assert unflatten_json({"xs[1]": "b"}) == {"xs": [None, "b"]}
+
+
+class TestSchemaAliases:
+    def test_x_aliases_parsed(self):
+        schema = Schema.from_json_schema(
+            {
+                "type": "object",
+                "properties": {
+                    "total_price": {"type": "number", "x-aliases": ["total", "grand total"]}
+                },
+            }
+        )
+        assert schema.leaves[0].aliases == ["total", "grand total"]

@@ -37,20 +37,52 @@ CORD_SCHEMA_RAW: dict = {
         "sub_total": {
             "type": "object",
             "properties": {
-                "subtotal_price": {"type": "number", "x-numeric-tol": 0.01},
-                "tax_price": {"type": "number", "x-numeric-tol": 0.01},
-                "discount_price": {"type": "number", "x-numeric-tol": 0.01},
-                "service_price": {"type": "number", "x-numeric-tol": 0.01},
+                "subtotal_price": {
+                    "type": "number",
+                    "x-numeric-tol": 0.01,
+                    "x-aliases": ["subtotal", "sub total", "sub-total"],
+                },
+                "tax_price": {
+                    "type": "number",
+                    "x-numeric-tol": 0.01,
+                    "x-aliases": ["tax", "ppn", "pb1"],
+                },
+                "discount_price": {
+                    "type": "number",
+                    "x-numeric-tol": 0.01,
+                    "x-aliases": ["discount", "diskon"],
+                },
+                "service_price": {
+                    "type": "number",
+                    "x-numeric-tol": 0.01,
+                    "x-aliases": ["service", "service charge"],
+                },
             },
         },
         "total": {
             "type": "object",
             "properties": {
-                "total_price": {"type": "number", "x-numeric-tol": 0.01},
-                "cashprice": {"type": "number", "x-numeric-tol": 0.01},
-                "changeprice": {"type": "number", "x-numeric-tol": 0.01},
-                "creditcardprice": {"type": "number", "x-numeric-tol": 0.01},
-                "menuqty_cnt": {"type": "string"},
+                "total_price": {
+                    "type": "number",
+                    "x-numeric-tol": 0.01,
+                    "x-aliases": ["total", "grand total", "amount due"],
+                },
+                "cashprice": {
+                    "type": "number",
+                    "x-numeric-tol": 0.01,
+                    "x-aliases": ["cash", "tunai"],
+                },
+                "changeprice": {
+                    "type": "number",
+                    "x-numeric-tol": 0.01,
+                    "x-aliases": ["change", "kembali", "kembalian"],
+                },
+                "creditcardprice": {
+                    "type": "number",
+                    "x-numeric-tol": 0.01,
+                    "x-aliases": ["credit card", "debit", "card"],
+                },
+                "menuqty_cnt": {"type": "string", "x-aliases": ["qty", "items", "item qty"]},
             },
         },
     },
@@ -110,11 +142,18 @@ def load(
     split: str = "validation",
     limit: int | None = 100,
     cache_dir: str | Path = "data",
+    with_images: bool = False,
 ) -> list[BenchDocument]:  # pragma: no cover - network on first call
-    """Load CORD v2 (streamed; JSON-cached locally after the first download)."""
+    """Load CORD v2 (streamed; JSON-cached locally after the first download).
+
+    ``with_images=True`` additionally exports each receipt PNG (needed by
+    image-reading OCR adapters) and sets ``page.image_path``.
+    """
     schema = Schema.from_json_schema(CORD_SCHEMA_RAW, name="cord-receipt")
     cache = Path(cache_dir) / f"cord_{split}_{limit or 'all'}.json"
-    if cache.exists():
+    image_dir = Path(cache_dir) / "cord_images" / split
+    need_images = with_images and not image_dir.exists()
+    if cache.exists() and not need_images:
         rows = json.loads(cache.read_text(encoding="utf-8"))
     else:
         try:
@@ -123,11 +162,15 @@ def load(
             raise ImportError("CORD loader requires: pip install 'verifydoc[data]'") from exc
         stream = load_dataset("naver-clova-ix/cord-v2", split=split, streaming=True)
         rows = []
+        if with_images:
+            image_dir.mkdir(parents=True, exist_ok=True)
         for i, row in enumerate(stream):
             if limit is not None and i >= limit:
                 break
             gt = json.loads(row["ground_truth"])
             width, height = row["image"].size
+            if with_images:
+                row["image"].save(image_dir / f"{i:05d}.png")
             rows.append(
                 {
                     "gt_parse": gt["gt_parse"],
@@ -144,6 +187,9 @@ def load(
         doc = document_from_valid_lines(
             f"cord-{split}-{i:05d}", row["valid_line"], row["width"], row["height"]
         )
+        image_path = image_dir / f"{i:05d}.png"
+        if with_images and image_path.exists():
+            doc.pages[0].image_path = str(image_path)
         golds = golds_from_gt_parse(row["gt_parse"], schema, doc)
         if golds and doc.pages[0].words:
             out.append(BenchDocument(doc=doc, schema=schema, golds=golds))

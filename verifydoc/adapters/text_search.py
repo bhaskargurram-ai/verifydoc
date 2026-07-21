@@ -26,8 +26,12 @@ class TextSearchAdapter(ExtractorAdapter):
         for leaf in schema.leaves:
             if "[]" in leaf.path:
                 continue
-            label = leaf.path.split(".")[-1].replace("_", " ").casefold()
-            found = self._find(doc, label)
+            labels = [leaf.path.split(".")[-1].replace("_", " ").casefold()] + [
+                a.casefold() for a in leaf.aliases
+            ]
+            found = next(
+                (hit for label in labels if (hit := self._find(doc, label)) is not None), None
+            )
             if found is not None:
                 value, page_no, line = found
                 preds.append(

@@ -153,7 +153,11 @@ def run_benchmark(cfg: dict[str, Any], out_dir: str | Path) -> dict[str, Any]:
     elif dataset == "cord":
         from benchmark.datasets import cord
 
-        bench = cord.load(split=cfg.get("split", "validation"), limit=cfg.get("limit", 100))
+        bench = cord.load(
+            split=cfg.get("split", "validation"),
+            limit=cfg.get("limit", 100),
+            with_images=cfg.get("extractor", "mock") != "mock",
+        )
     elif dataset == "funsd":
         from benchmark.datasets import funsd
 

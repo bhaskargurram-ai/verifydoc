@@ -1,0 +1,9 @@
+# Real-model experiment: PaddleOCR on FUNSD scanned forms (noisy, low-res).
+dataset: funsd
+split: testing
+extractor: paddleocr-vl
+seed: 7
+k: 1   # deterministic OCR: token-prob + grounding are the live signals
+calibration_fraction: 0.5
+alphas: [0.02, 0.05]
+n_boot: 300

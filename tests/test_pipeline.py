@@ -299,3 +299,20 @@ class TestGrounderLongValues:
         ghost = " ".join(f"ghost{i}" for i in range(20))
         (out,) = ground_predictions([FieldPrediction(path="p", value=ghost)], doc)
         assert out.grounding is None
+
+
+class TestTextSearchAliases:
+    def test_alias_label_matches_receipt_style(self):
+        doc = document_from_text("r1", ["KOPI KENANGAN\nTOTAL 45,500\nCASH 50,000"])
+        schema = Schema.from_json_schema(
+            {
+                "type": "object",
+                "properties": {
+                    "total_price": {"type": "number", "x-aliases": ["total"]},
+                    "cashprice": {"type": "number", "x-aliases": ["cash", "tunai"]},
+                },
+            }
+        )
+        preds = {p.path: p.value for p in TextSearchAdapter().extract(doc, schema)}
+        assert preds["total_price"] == "45,500"
+        assert preds["cashprice"] == "50,000"

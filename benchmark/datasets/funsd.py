@@ -160,5 +160,6 @@ def load(
             width, height = img.size
         item = bench_from_annotation(f"funsd-{split}-{ann_path.stem}", annotation, width, height)
         if item is not None:
+            item.doc.pages[0].image_path = str(img_path)  # for image-reading OCR adapters
             out.append(item)
     return out

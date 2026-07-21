@@ -116,6 +116,7 @@ class SchemaLeaf(BaseModel):
     scoring: ScoringRule = "exact"
     numeric_tol: float = Field(default=1e-6, ge=0.0)
     required: bool = True
+    aliases: list[str] = Field(default_factory=list)  # on-page label variants (x-aliases)
 
 
 class Schema(BaseModel):
@@ -171,6 +172,7 @@ def _walk_json_schema(
                 scoring=scoring,
                 numeric_tol=float(node.get("x-numeric-tol", 1e-6)),
                 required=required,
+                aliases=list(node.get("x-aliases", [])),
             )
         )
 

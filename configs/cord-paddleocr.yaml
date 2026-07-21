@@ -1,12 +1,13 @@
-# Pinned real-model experiment (issue #3): PaddleOCR-VL on CORD receipts.
-# Needs a 24 GB GPU + `pip install paddlepaddle-gpu paddleocr` and CORD
-# images exported to disk — see docs/REAL_MODELS.md.
+# Pinned real-model experiment (issue #3): PaddleOCR on CORD receipts.
+# Needs a GPU + `pip install paddlepaddle-gpu paddleocr`; CORD images are
+# exported automatically (with_images) — see docs/REAL_MODELS.md.
 dataset: cord
 split: validation
 limit: 100
-extractor: paddleocr-vl   # any name from the adapter registry
+extractor: paddleocr-vl
 seed: 7
-k: 5
+k: 1   # the OCR pipeline is deterministic: consensus over k>1 is degenerate;
+       # the live signals here are token-prob (rec scores) and grounding.
 calibration_fraction: 0.5
 alphas: [0.02, 0.05]
 n_boot: 300
