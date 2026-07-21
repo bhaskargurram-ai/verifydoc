@@ -1,0 +1,11 @@
+# Pinned demo config: `make results` regenerates paper/generated from this.
+# Fully offline (synthetic slice of VerifyDocBench + simulated extractor).
+seed: 7
+n_docs: 60
+k: 5                      # self-consistency samples
+error_rate: 0.18          # simulated silently-wrong rate
+omit_rate: 0.04
+hallucinate_rate: 0.06
+calibration_fraction: 0.5 # docs held out to fit calibrators/thresholds
+alphas: [0.02, 0.05]      # target selective risks (Coverage@2%, @5%)
+n_boot: 300               # bootstrap replicates for CIs

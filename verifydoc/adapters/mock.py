@@ -8,6 +8,7 @@ No network, no model. Two modes:
 
 from __future__ import annotations
 
+import math
 import random
 
 from verifydoc.adapters.base import ExtractorAdapter
@@ -47,20 +48,33 @@ class MockAdapter(ExtractorAdapter):
             roll = rng.random()
             if roll < self.omit_rate:
                 continue
-            if roll < self.omit_rate + self.error_rate:
-                value = self._corrupt(gold)
-            else:
-                value = gold.value
-            preds.append(FieldPrediction(path=gold.path, value=value, confidence=0.5))
+            correct = roll >= self.omit_rate + self.error_rate
+            value = gold.value if correct else self._corrupt(gold)
+            preds.append(
+                FieldPrediction(
+                    path=gold.path, value=value, confidence=0.5, meta=self._signals(correct)
+                )
+            )
         if golds and rng.random() < self.hallucinate_rate:
             preds.append(
                 FieldPrediction(
                     path=f"spurious_{rng.randrange(1000)}",
                     value="ghost",
                     confidence=0.5,
+                    meta=self._signals(False),
                 )
             )
         return preds
+
+    def _signals(self, correct: bool) -> dict[str, object]:
+        """Simulated raw signals with realistic pathologies: verbalized is
+        inflated regardless of correctness (the RLHF failure mode); token
+        scores carry weak-but-real signal."""
+        rng = self._rng
+        verbalized = min(1.0, max(0.0, 0.9 + rng.uniform(-0.05, 0.08)))
+        base = 0.97 if correct else 0.90
+        logprobs = [math.log(min(1.0, max(0.05, base + rng.gauss(0.0, 0.03)))) for _ in range(3)]
+        return {"verbalized_confidence": verbalized, "token_logprobs": logprobs}
 
     def _corrupt(self, gold: FieldGold) -> object:
         """Silently-wrong value: digit swaps for numbers, char noise for text."""
