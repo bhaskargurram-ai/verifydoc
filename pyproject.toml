@@ -80,7 +80,9 @@ line-length = 100
 target-version = ["py311"]
 
 [tool.mypy]
-python_version = "3.11"
+# 3.12 target so PEP-695 `type` statements in newer numpy stubs parse;
+# 3.11 runtime compatibility is enforced by the 3.11 CI test leg.
+python_version = "3.12"
 warn_unused_ignores = true
 warn_redundant_casts = true
 no_implicit_optional = true
@@ -91,11 +93,6 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
-
-# newer numpy stubs use PEP 695 `type` statements that a 3.11 target can't parse
-[[tool.mypy.overrides]]
-module = ["numpy", "numpy.*"]
-follow_imports = "skip"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
