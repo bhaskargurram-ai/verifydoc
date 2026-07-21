@@ -49,13 +49,19 @@ class Grounding(BaseModel):
 
 
 class FieldPrediction(BaseModel):
-    """One extracted leaf field with its reliability contract."""
+    """One extracted leaf field with its reliability contract.
+
+    ``meta`` carries adapter-provided raw signals consumed by the confidence
+    stage (e.g. ``token_logprobs: list[float]``, ``verbalized_confidence:
+    float``) without coupling stages to any model SDK.
+    """
 
     path: str
     value: Any = None
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
     grounding: Grounding | None = None
     decision: Decision = "review"
+    meta: dict[str, Any] = Field(default_factory=dict)
 
 
 class FieldGold(BaseModel):
