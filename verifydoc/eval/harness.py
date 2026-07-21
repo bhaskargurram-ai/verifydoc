@@ -139,9 +139,17 @@ def run_benchmark(cfg: dict[str, Any], out_dir: str | Path) -> dict[str, Any]:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    from benchmark.datasets import synthetic
+    dataset = cfg.get("dataset", "synthetic")
+    if dataset == "synthetic":
+        from benchmark.datasets import synthetic
 
-    bench = synthetic.generate(n_docs=cfg.get("n_docs", 40), seed=cfg.get("seed", 0))
+        bench = synthetic.generate(n_docs=cfg.get("n_docs", 40), seed=cfg.get("seed", 0))
+    elif dataset == "cord":
+        from benchmark.datasets import cord
+
+        bench = cord.load(split=cfg.get("split", "validation"), limit=cfg.get("limit", 100))
+    else:
+        raise ValueError(f"unknown dataset {dataset!r} (available: synthetic, cord)")
     adapter = MockAdapter(
         gold={item.doc.doc_id: item.golds for item in bench},
         error_rate=cfg.get("error_rate", 0.15),
@@ -161,7 +169,12 @@ def run_benchmark(cfg: dict[str, Any], out_dir: str | Path) -> dict[str, Any]:
 
     alphas = cfg.get("alphas", [0.02, 0.05])
     n_boot = cfg.get("n_boot", 300)
-    summary: dict[str, Any] = {"n_docs": len(bench), "n_cal": len(cal_ids), "n_test": len(test_ids)}
+    summary: dict[str, Any] = {
+        "dataset": dataset,
+        "n_docs": len(bench),
+        "n_cal": len(cal_ids),
+        "n_test": len(test_ids),
+    }
 
     calib_rows: list[dict[str, Any]] = []
     select_rows: list[dict[str, Any]] = []

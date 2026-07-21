@@ -1,0 +1,14 @@
+# CORD v2 slice: REAL receipts, REAL text layers + gold boxes; extractor
+# errors simulated at seeded rates (real-model configs land with issue #3).
+# First run downloads ~100 receipts from the HF hub, then caches to data/.
+dataset: cord
+split: validation
+limit: 100
+seed: 7
+k: 5
+error_rate: 0.18
+omit_rate: 0.04
+hallucinate_rate: 0.06
+calibration_fraction: 0.5
+alphas: [0.02, 0.05]
+n_boot: 300
