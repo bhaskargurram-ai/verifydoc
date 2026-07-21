@@ -1,3 +1,16 @@
 """VerifyDoc: a trust layer for document -> structured-JSON extraction."""
 
+from verifydoc.pipeline import VerifiedResult, verify
+from verifydoc.types import Document, FieldGold, FieldPrediction, Grounding, Schema
+
 __version__ = "0.1.0"
+
+__all__ = [
+    "Document",
+    "FieldGold",
+    "FieldPrediction",
+    "Grounding",
+    "Schema",
+    "VerifiedResult",
+    "verify",
+]

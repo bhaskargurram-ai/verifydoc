@@ -71,6 +71,9 @@ target-version = "py311"
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 ignore = ["E501", "B905", "SIM108"]
 
+[tool.ruff.lint.per-file-ignores]
+"verifydoc/cli.py" = ["B008"]  # typer's standard Option/Argument-in-default idiom
+
 [tool.black]
 line-length = 100
 target-version = ["py311"]
