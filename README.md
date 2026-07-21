@@ -7,6 +7,10 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](pyproject.toml)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
+![VerifyDoc demo: a silently-wrong total is caught by grounding and routed to review](docs/demo.gif)
+
+*Above: a real pipeline run (`scripts/make_demo_gif.py`). The extractor returned `$1,432.50`; the page says `$1,234.50`. Grounding support drops to 0.78, the field misses the accept threshold, and the reviewer is pointed at the exact source region. The other three fields are auto-accepted.*
+
 ## The problem
 
 Modern document parsers read pages at 96%+ benchmark accuracy — and still emit **fluent, plausible, silently-wrong values** (`$42.50` → `$45.20`) with **no reliable per-field signal telling you which values to trust**. Commercial APIs (Box, Azure, Textract) sell field-level confidence as a closed feature. No popular open-source parser leads with it. ([full USP audit](docs/USP.md))
