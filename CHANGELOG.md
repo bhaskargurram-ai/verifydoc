@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.2.0 — 2026-07-21
+
+Real data, faster grounding, learned fusion.
+
+- **CORD v2 slice**: real receipts with real text layers (word quads) and
+  located gold boxes; Indonesian thousands-comma prices score numerically.
+- **FUNSD slice**: 199 scanned forms; question→answer links become gold
+  fields with exact annotated answer boxes.
+- **Harness**: `dataset:` (synthetic | cord | funsd) and `extractor:` (any
+  adapter registry name) dispatch; `make results` regenerates all slices.
+- **Learned combiner**: logistic fusion over signal values + missing
+  indicators, fit on the calibration split; reported as a `learned` row in
+  every table (ablation vs the transparent weighted mean).
+- **Grounder performance (~1000×)**: exact-match fast path, token-anchored
+  fuzzy scan with length pruning, token-overlap scoring for paragraph-length
+  values. FUNSD run: hours → 8 seconds.
+- **Fix**: text-search label matching uses word boundaries ("total" no longer
+  fires inside "Subtotal") — caught by the harness itself.
+- Demo GIF rendered from a real pipeline run; GPU runbook
+  (docs/REAL_MODELS.md) + pinned real-model config; paper skeleton.
+
 ## v0.1.0 — 2026-07-21
 
 First public release.

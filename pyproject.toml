@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "verifydoc"
-version = "0.1.0"
+version = "0.2.0"
 description = "A trust layer for document -> structured-JSON extraction: calibrated per-field confidence, source grounding, and abstention on top of any extractor."
 readme = "README.md"
 license = { file = "LICENSE" }
