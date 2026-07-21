@@ -268,9 +268,11 @@ class TestCLI:
         assert "accepted" in result.output
 
     def test_version_command(self):
+        import verifydoc
+
         result = CliRunner().invoke(app, ["version"])
         assert result.exit_code == 0
-        assert "0.1.0" in result.output
+        assert verifydoc.__version__ in result.output
 
 
 class TestGrounderLongValues:
