@@ -162,8 +162,12 @@ def run_benchmark(cfg: dict[str, Any], out_dir: str | Path) -> dict[str, Any]:
         from benchmark.datasets import funsd
 
         bench = funsd.load(split=cfg.get("split", "testing"), limit=cfg.get("limit"))
+    elif dataset == "sroie":
+        from benchmark.datasets import sroie
+
+        bench = sroie.load(split=cfg.get("split", "test"), limit=cfg.get("limit", 100))
     else:
-        raise ValueError(f"unknown dataset {dataset!r} (available: synthetic, cord, funsd)")
+        raise ValueError(f"unknown dataset {dataset!r} (available: synthetic, cord, funsd, sroie)")
     extractor = cfg.get("extractor", "mock")
     if extractor == "mock":
         adapter: Any = MockAdapter(
