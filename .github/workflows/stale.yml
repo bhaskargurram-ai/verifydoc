@@ -1,0 +1,27 @@
+name: Stale triage
+
+on:
+  schedule:
+    - cron: "30 1 * * *"
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/stale@v9
+        with:
+          days-before-stale: 45
+          days-before-close: 14
+          stale-issue-label: stale
+          stale-pr-label: stale
+          exempt-issue-labels: "pinned,good first issue,enhancement,bug"
+          exempt-pr-labels: "pinned"
+          stale-issue-message: >
+            This issue has had no activity for 45 days. It will be closed in 14
+            days if there's no further activity. Comment to keep it open.
+          stale-pr-message: >
+            This PR has had no activity for 45 days. It will be closed in 14
+            days if there's no further activity.

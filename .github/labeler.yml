@@ -1,0 +1,25 @@
+# Auto-label PRs by the files they touch (actions/labeler v5 schema).
+adapters:
+  - changed-files:
+      - any-glob-to-any-file: "verifydoc/adapters/**"
+eval:
+  - changed-files:
+      - any-glob-to-any-file: "verifydoc/eval/**"
+calibration:
+  - changed-files:
+      - any-glob-to-any-file: "verifydoc/calibration/**"
+benchmark:
+  - changed-files:
+      - any-glob-to-any-file: ["benchmark/**", "configs/**", "scripts/**"]
+integrations:
+  - changed-files:
+      - any-glob-to-any-file: "verifydoc/integrations/**"
+docs:
+  - changed-files:
+      - any-glob-to-any-file: ["docs/**", "**/*.md", "README.md"]
+tests:
+  - changed-files:
+      - any-glob-to-any-file: "tests/**"
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ".github/**"

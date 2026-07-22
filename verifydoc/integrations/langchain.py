@@ -65,22 +65,3 @@ def _coerce_schema(schema: Schema | dict[str, Any] | type) -> Schema:
     if isinstance(schema, dict):
         return Schema.from_json_schema(schema)
     return Schema.from_pydantic(schema)  # a Pydantic model class
-
-
-class _CannedAdapter:
-    name = "langchain-canned"
-
-    def __init__(self, flat_values: dict[str, Any]) -> None:
-        self._flat = flat_values
-
-    def extract(self, doc: Any, schema: Schema) -> list[Any]:
-        from verifydoc.types import FieldPrediction
-
-        return [
-            FieldPrediction(path=path, value=value)
-            for path, value in self._flat.items()
-            if value is not None
-        ]
-
-    def extract_samples(self, doc: Any, schema: Schema, k: int = 1) -> list[list[Any]]:
-        return [self.extract(doc, schema)]

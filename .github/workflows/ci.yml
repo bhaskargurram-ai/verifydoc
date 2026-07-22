@@ -29,5 +29,26 @@ jobs:
         run: mypy verifydoc
       - name: Pytest (eval coverage gate 80%)
         run: |
-          pytest --cov=verifydoc --cov-report=term-missing
+          pytest --cov=verifydoc --cov-report=term-missing --cov-report=xml
           python -m coverage report --include="verifydoc/eval/*" --fail-under=80
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: matrix.python-version == '3.12'
+        with:
+          name: coverage-xml
+          path: coverage.xml
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build & install the wheel (packaging sanity)
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+          pip install dist/*.whl
+          python -c "import verifydoc; print('verifydoc', verifydoc.__version__)"
+          verifydoc version

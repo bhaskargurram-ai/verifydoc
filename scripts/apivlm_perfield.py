@@ -82,10 +82,6 @@ def collect(limit: int, provider: str) -> list[dict]:
     return records
 
 
-def _grouped_of(support: float, min_support: float = 0.5) -> str:
-    return "grounded" if support >= min_support else "ungrounded"
-
-
 def evaluate(records: list[dict], rows: list[dict]) -> None:
     from verifydoc.types import FieldPrediction, Grounding
 
