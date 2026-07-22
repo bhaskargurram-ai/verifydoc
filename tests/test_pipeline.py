@@ -400,3 +400,23 @@ class TestRapidOCRNormalization:
         from verifydoc.adapters import _REGISTRY
 
         assert "rapidocr" in _REGISTRY
+
+
+class TestGrounderNumericMatch:
+    def test_comma_and_currency_number_grounds(self):
+        # model returns "45500"; page shows "45,500" / "$45,500" — must ground
+        doc = document_from_text("r", ["TOTAL 45,500", "CASH $50,000"])
+        (out,) = ground_predictions([FieldPrediction(path="total", value="45500")], doc)
+        assert out.grounding is not None
+        assert out.grounding.support == pytest.approx(1.0)
+
+    def test_currency_prefixed_value_grounds(self):
+        doc = document_from_text("r", ["Total: 1,234.50"])
+        (out,) = ground_predictions([FieldPrediction(path="t", value="$1,234.50")], doc)
+        assert out.grounding is not None and out.grounding.support == pytest.approx(1.0)
+
+    def test_non_numeric_comma_preserved(self):
+        # thousands rule is digit-bounded, so "Smith, John" isn't mangled
+        doc = document_from_text("r", ["Name: Smith, John"])
+        (out,) = ground_predictions([FieldPrediction(path="n", value="Smith, John")], doc)
+        assert out.grounding is not None and out.grounding.support == pytest.approx(1.0)

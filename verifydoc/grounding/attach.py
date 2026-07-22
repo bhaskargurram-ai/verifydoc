@@ -10,10 +10,26 @@ is exactly the hallucination smell the policy layer should flag.
 
 from __future__ import annotations
 
+import re
+
 from verifydoc.eval.extraction import normalize_text, normalized_levenshtein_similarity
 from verifydoc.types import Document, FieldPrediction, Grounding, Page
 
 MIN_SUPPORT = 0.5
+
+# Grounding-time normalization: a value the model returns as "45500" should
+# ground to the page token "45,500" or "$45,500". We strip currency symbols and
+# thousands-separator commas (only between digits, so "Smith, John" is safe) so
+# numeric provenance matching works on real receipts/forms.
+_CURRENCY_RE = re.compile(r"[$€£¥₹]")
+_THOUSANDS_RE = re.compile(r"(?<=\d),(?=\d)")
+
+
+def _normalize_for_match(text: str) -> str:
+    t = normalize_text(text).casefold()
+    t = _CURRENCY_RE.sub("", t)
+    t = _THOUSANDS_RE.sub("", t)
+    return t
 
 
 def ground_predictions(
@@ -31,7 +47,7 @@ def ground_predictions(
 
 
 def _locate(value: str, doc: Document, min_support: float) -> Grounding | None:
-    target = normalize_text(value).casefold()
+    target = _normalize_for_match(value)
     if not target:
         return None
     best: Grounding | None = None
@@ -73,7 +89,7 @@ def _best_window(target: str, page: Page) -> tuple[tuple[float, float, float, fl
         return None
     n_target_tokens = max(1, len(target.split()))
     max_width = n_target_tokens + 1
-    normalized = [normalize_text(w.text).casefold() for w in words]
+    normalized = [_normalize_for_match(w.text) for w in words]
 
     for start in range(len(words)):
         joined = normalized[start]
