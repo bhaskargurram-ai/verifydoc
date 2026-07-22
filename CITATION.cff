@@ -6,7 +6,7 @@ authors:
     given-names: Bhaskar
 repository-code: "https://github.com/bhaskargurram-ai/verifydoc"
 license: Apache-2.0
-version: 0.7.0
+version: 0.8.0
 date-released: 2026-07-21
 keywords:
   - document-extraction

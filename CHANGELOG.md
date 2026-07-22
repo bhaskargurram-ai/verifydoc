@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.8.0 — 2026-07-22
+
+Adoption, automation, and repo hygiene.
+
+- **Framework integrations** (`verifydoc.integrations`): `verify_instructor_result`
+  for Instructor/Pydantic/Outlines/Marvin and `VerifiedExtractor` for LangChain —
+  add the trust layer in a few lines; no framework dependency imported.
+- **GitHub automation**: Dependabot (pip + actions), CodeQL security scanning,
+  PR labeler, stale triage, a secret-gated Claude code-review dev-agent, and a
+  packaging build job + coverage artifact in CI.
+- **Repo hygiene**: removed dead code; benchmark output now goes to a
+  git-ignored `results/` dir.
+- **Proprietary paper removed from GitHub**: the `paper/` directory (LaTeX
+  write-up + generated tables/figures) is purged from the tree and all history
+  and kept local-only; the open-source library, benchmark harness, and
+  reproducibility scripts remain public.
+
+
 ## v0.7.0 — 2026-07-22
 
 Literature-grounded hardening (4-agent SOTA sweep) + production DX.
