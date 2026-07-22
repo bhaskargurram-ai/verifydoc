@@ -51,6 +51,20 @@ streamlit run ui/streamlit_app.py     # review UI: green/red fields + click-thro
 
 See [`examples/`](examples/) for the full runnable walk-through.
 
+## For AI agents (MCP)
+
+Give any MCP-capable agent (Claude Desktop, IDEs, custom agents) a **trust
+layer for reading documents** — so it acts on confident, grounded fields and
+escalates the rest instead of hallucinating forward:
+
+```bash
+pip install 'verifydoc[mcp]'
+verifydoc-mcp     # stdio MCP server exposing verify_extraction()
+```
+
+Every field the agent extracts comes back with `confidence + grounding +
+accept/review`. See [docs/MCP.md](docs/MCP.md) for the one-line client config.
+
 Schemas are plain JSON Schema, with each leaf optionally declaring **how it is scored** (the executable-schema pattern):
 
 ```json
