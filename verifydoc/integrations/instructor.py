@@ -25,6 +25,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from verifydoc.adapters.canned import CannedAdapter
 from verifydoc.pipeline import DEFAULT_THRESHOLD, VerifiedResult, verify
 from verifydoc.types import Schema, flatten_json
 
@@ -50,25 +51,4 @@ def verify_instructor_result(
     schema = Schema.from_pydantic(type(result))
     flat = flatten_json(result.model_dump())
     doc = document_from_text("extraction", [document])
-    return verify(doc, schema, adapter=_CannedAdapter(flat), threshold=threshold, **verify_kwargs)
-
-
-class _CannedAdapter:
-    """Adapter that replays already-extracted field values (no model call)."""
-
-    name = "instructor-canned"
-
-    def __init__(self, flat_values: dict[str, Any]) -> None:
-        self._flat = flat_values
-
-    def extract(self, doc: Any, schema: Schema) -> list[Any]:
-        from verifydoc.types import FieldPrediction
-
-        return [
-            FieldPrediction(path=path, value=value)
-            for path, value in self._flat.items()
-            if value is not None
-        ]
-
-    def extract_samples(self, doc: Any, schema: Schema, k: int = 1) -> list[list[Any]]:
-        return [self.extract(doc, schema)]
+    return verify(doc, schema, adapter=CannedAdapter(flat), threshold=threshold, **verify_kwargs)

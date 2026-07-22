@@ -24,6 +24,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from verifydoc.adapters.canned import CannedAdapter
 from verifydoc.pipeline import DEFAULT_THRESHOLD, VerifiedResult, verify
 from verifydoc.types import Schema, flatten_json
 
@@ -52,7 +53,7 @@ class VerifiedExtractor:
         return verify(
             document_from_text("extraction", [document]),
             self._schema,
-            adapter=_CannedAdapter(flat),
+            adapter=CannedAdapter(flat),
             threshold=self._threshold,
             **self._verify_kwargs,
         )
