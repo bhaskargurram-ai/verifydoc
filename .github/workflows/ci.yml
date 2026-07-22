@@ -32,7 +32,7 @@ jobs:
           pytest --cov=verifydoc --cov-report=term-missing --cov-report=xml
           python -m coverage report --include="verifydoc/eval/*" --fail-under=80
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: matrix.python-version == '3.12'
         with:
           name: coverage-xml
