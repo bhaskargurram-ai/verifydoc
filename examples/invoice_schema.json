@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "required": ["invoice_id", "total"],
+  "properties": {
+    "invoice_id": {"type": "string"},
+    "vendor": {"type": "string", "x-scoring": "semantic"},
+    "date": {"type": "string"},
+    "subtotal": {"type": "number", "x-numeric-tol": 0.01},
+    "tax": {"type": "number", "x-numeric-tol": 0.01},
+    "total": {"type": "number", "x-numeric-tol": 0.01}
+  }
+}

@@ -36,7 +36,8 @@ pip install 'verifydoc[pdf]'   # + PDF/image ingestion
 ```python
 from verifydoc import verify
 
-result = verify("invoice.txt", schema="invoice_schema.json", k=3)
+# ready-to-run sample lives in examples/
+result = verify("examples/invoice.txt", schema="examples/invoice_schema.json")
 for f in result.fields:
     print(f"{f.path:12} = {f.value!r:24} conf={f.confidence:.2f} {f.decision}")
     if f.grounding:
@@ -44,9 +45,11 @@ for f in result.fields:
 ```
 
 ```bash
-verifydoc extract invoice.txt --schema invoice_schema.json --k 3 --threshold 0.8
+verifydoc extract examples/invoice.txt --schema examples/invoice_schema.json --threshold 0.8
 streamlit run ui/streamlit_app.py     # review UI: green/red fields + click-through to source
 ```
+
+See [`examples/`](examples/) for the full runnable walk-through.
 
 Schemas are plain JSON Schema, with each leaf optionally declaring **how it is scored** (the executable-schema pattern):
 
@@ -72,7 +75,30 @@ Schemas are plain JSON Schema, with each leaf optionally declaring **how it is s
 | **Policy** | empirical & conformal accept thresholds for a target selective risk | ✅ |
 | **Eval harness / VerifyDocBench scorer** | Field-F1 · exact · CER/WER · ANLS · TEDS/TEDS-Struct · GriTS · omission vs hallucination · ECE/Adaptive-ECE/MCE/Brier/NLL/TCE · RC/AURC/E-AURC/Coverage@Risk/AUROC/AUPR/FPR@95 · box IoU/span-F1/grounding-conditioned correctness · bootstrap CIs + paired tests | ✅ |
 
-Every metric implements the exact definition in [PROJECT.md §5](PROJECT.md) with a hand-computed numeric regression test (200 tests, `eval/` coverage 98%).
+Every metric implements the exact definition in [PROJECT.md §5](PROJECT.md) with a hand-computed numeric regression test (201 tests, `eval/` coverage 98%).
+
+## Results on real documents
+
+Two independent real OCR extractors (**RapidOCR** and **PaddleOCR**) on real
+**CORD** receipts and **FUNSD** forms, scored by the harness
+([full tables + reading](paper/generated/REAL_MODELS_RESULTS.md)):
+
+| Confidence signal | ranks errors? | CORD AUROC (RapidOCR / PaddleOCR) |
+|---|---|---|
+| **learned combiner** | ✅ best | **0.89 / 0.84** |
+| **grounding** | ✅ strong | 0.82 / 0.74 |
+| token-probability | ~ moderate | 0.69 / 0.68 |
+| verbalized / consensus | ✗ uninformative | 0.50 / 0.50 |
+
+- **Grounding is a real trust signal:** grounded fields are **84–85% correct
+  vs ~1%** for ungrounded (gap ≈ +0.84; box accuracy @IoU 0.5 = 0.75–0.78).
+- **The abstention layer is honest:** with a weak field-extractor the base
+  error rate is high, so conformal abstention at a 2–5% budget correctly
+  refuses to auto-accept — you report *selective risk*, not headline accuracy.
+- The synthetic slice (strong extractor) shows the other end: Coverage@2% ≈ 1.0.
+
+The thesis holds on real data: **grounding + a learned fusion rank errors;
+self-reported and single-sample-consensus confidence do not.**
 
 ## The benchmark
 
@@ -82,16 +108,13 @@ make results     # regenerates every table/figure in paper/generated from config
 
 The harness runs **signals × calibrators × the full metric suite** with a
 document-level calibration split (disjointness asserted in code), bootstrap
-CIs, and a conformal-guarantee row. The repo ships a deterministic synthetic
-slice that runs in CI; loaders for CORD (and next: FUNSD, SROIE, DocILE,
-XFUND) extend it. Sample findings on the shipped slice
-([tables](paper/generated)):
-
-- **Verbalized self-confidence is badly miscalibrated** (the extractor says ~0.9 regardless of correctness) — exactly the failure mode reported for RLHF'd models.
-- **Consensus and grounding signals rank errors near-perfectly** (AUROC ≈ 0.98): corrupted values can't be traced back to the page, so grounding support collapses.
-- **The conformal row holds its guarantee** on every tested α, and reports the abstention it forces.
-
-These self-checks run as unit tests — the repo's core claims are CI-enforced, not just stated.
+CIs, and a conformal-guarantee row. It ships a deterministic **synthetic**
+slice (runs in CI) plus **CORD** and **FUNSD** loaders with gold source boxes;
+`extractor:` dispatches to any adapter (`rapidocr`, `paddleocr-vl`, …) and
+`dataset:` to any slice. See the [GPU runbook](docs/REAL_MODELS.md) to
+reproduce the real-model rows. Core claims (grounding beats verbalized;
+conformal holds its guarantee) are also **CI-enforced as unit tests**, not
+just stated.
 
 ## Why not just use the parser's own score?
 
@@ -104,9 +127,11 @@ buys you.
 ## Roadmap
 
 - [x] v0.1 — library + CLI + harness + synthetic benchmark slice + UI
-- [ ] CORD/FUNSD/SROIE slices with gold source boxes (VerifyDocBench v1)
-- [ ] Learned signal combiner + per-field-type calibration
-- [ ] Paper: first systematic study of confidence signals × calibration × abstention for document extraction
+- [x] v0.2 — CORD + FUNSD real slices with gold boxes; learned combiner; 1000× faster grounder
+- [x] v0.3 — real-model results (RapidOCR + PaddleOCR on CORD/FUNSD)
+- [ ] dots.ocr via vllm; API-VLM row (verbalized + k-sample consensus on a real VLM)
+- [ ] SROIE / DocILE / XFUND slices; human-labeled correctness + IAA
+- [ ] Paper: first systematic study of confidence × calibration × abstention for document extraction ([contributions welcome](CONTRIBUTING.md))
 
 ## Development
 

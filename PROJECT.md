@@ -12,7 +12,7 @@ Document → structured-JSON extraction is one of the highest-volume uses of LLM
 
 That is the wedge. VerifyDoc does not compete with the parsers — it *layers on top of any of them* and adds the missing reliability contract: field-level confidence + provenance + abstention. Commercial APIs already prove the demand (Box shipped field-level confidence in Jan 2026; Azure Document Intelligence, AWS Textract, and Extend all expose per-field confidence), but no popular open-source parser leads with it. Practitioner leaderboards name exactly this unmet need: whether a reviewer can trace an uncertain value back to the page before it enters a downstream system. VerifyDoc is the open-source answer.
 
-Why this is a good solo project: the tool is model-agnostic and thin (it wraps existing extractors), the paper contribution is the reliable "benchmark + released dataset + strong open baseline" type rather than a risky "beat-SOTA architecture" play, and the demo (highlight-the-hallucinated-field on the rendered page) is instantly shareable.
+Why the scope works: the tool is model-agnostic and thin (it wraps existing extractors), the paper contribution is the reliable "benchmark + released dataset + strong open baseline" type rather than a risky "beat-SOTA architecture" play, and the demo (highlight-the-hallucinated-field on the rendered page) is instantly shareable.
 
 ---
 
@@ -269,7 +269,7 @@ verifydoc/
 
 ---
 
-## 9. Implementation plan (6 weeks, solo)
+## 9. Implementation plan (6 weeks)
 
 **Week 1 — skeleton + types + one adapter + eval stubs.** Repo, packaging, CI, pre-commit. Define `types.py` (`FieldPrediction`, `Grounding`). Implement ingest (PDF→images + text layer). Ship the **PaddleOCR-VL adapter** end-to-end on a handful of CORD receipts. Stub `eval/extraction.py` with Field-F1 + exact-match. *DoD: `verifydoc extract sample.pdf --schema cord.json` returns JSON with placeholder confidences; CI green.*
 
@@ -317,12 +317,6 @@ verifydoc/
 - **Labeling ground-truth correctness is slow.** Bootstrap from datasets that already carry gold field values (CORD/SROIE) so `correct_i` is computable automatically; hand-label only source boxes and hard nested schemas; report on what's labeled and expand post-launch.
 - **The combined method doesn't beat simple consensus.** Then *consensus + conformal* is the honest, strong baseline and the **benchmark itself is the primary contribution** — arguably more citable.
 - **Logit access missing for API models.** Lead with black-box signals (verbalized + consensus + grounding); logit-based rows become an ablation where available.
-
----
-
-
-
-
 
 ---
 

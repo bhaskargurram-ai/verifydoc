@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use VerifyDoc or VerifyDocBench, please cite it."
+title: "VerifyDoc: Calibrated, Abstaining, Grounded Document Extraction"
+authors:
+  - family-names: Gurram
+    given-names: Bhaskar
+repository-code: "https://github.com/bhaskargurram-ai/verifydoc"
+license: Apache-2.0
+version: 0.3.0
+date-released: 2026-07-21
+keywords:
+  - document-extraction
+  - calibration
+  - selective-prediction
+  - conformal-prediction
+  - grounding
+  - hallucination-detection

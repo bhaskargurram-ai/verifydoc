@@ -1,0 +1,8 @@
+ACME CORPORATION
+Invoice ID: INV-2024-0042
+Vendor: ACME Corporation
+Date: 2024-03-15
+Subtotal: $1,141.00
+Tax: $93.50
+Total: $1,234.50
+Payment due within 30 days
