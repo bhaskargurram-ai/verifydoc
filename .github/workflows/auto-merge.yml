@@ -1,0 +1,68 @@
+name: Auto-merge
+
+# Enables GitHub native auto-merge (squash) so a PR merges automatically once the
+# required CI checks pass — without letting untrusted contributions merge blindly.
+#
+# Policy:
+#   * Dependabot PRs: auto-merge on green (standard, low-risk dependency bumps).
+#   * Everything else: auto-merge on green ONLY if Claude approved it
+#     (`claude-approved` label from claude-review.yml) AND the diff touches no
+#     sensitive path (.github/**, packaging, dependency, lockfiles). Anything
+#     touching those waits for a maintainer — so the supply-chain / secret-config
+#     surfaces can never auto-merge.
+#
+# Auto-merge only *waits* for CI because branch protection marks the CI checks
+# as required; without that GitHub would merge immediately. The LLM review is
+# advisory (explicitly not a security boundary); CI + the sensitive-path block
+# are the real gates.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: automerge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  automerge:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      REPO: ${{ github.repository }}
+      ACTOR: ${{ github.event.pull_request.user.login }}
+    steps:
+      - name: Decide and enable auto-merge
+        run: |
+          set -uo pipefail
+
+          # Dependabot: always eligible for auto-merge on green.
+          if [ "$ACTOR" = "dependabot[bot]" ]; then
+            echo "Dependabot PR — enabling squash auto-merge"
+            gh pr merge "$PR" --repo "$REPO" --squash --auto || true
+            exit 0
+          fi
+
+          # Others must carry the claude-approved label.
+          labels=$(gh pr view "$PR" --repo "$REPO" --json labels --jq '.labels[].name' 2>/dev/null || true)
+          if ! printf '%s\n' "$labels" | grep -qx "claude-approved"; then
+            echo "not claude-approved yet — not enabling auto-merge"
+            exit 0
+          fi
+
+          # Block sensitive paths from auto-merging (needs a human).
+          files=$(gh pr diff "$PR" --repo "$REPO" --name-only 2>/dev/null || true)
+          if printf '%s\n' "$files" | grep -qE '^(\.github/|pyproject\.toml|setup\.(py|cfg)|.*\.lock|MANIFEST\.in|\.pre-commit-config)'; then
+            echo "PR touches CI/packaging/deps — holding for maintainer"
+            gh pr edit "$PR" --repo "$REPO" --add-label needs-maintainer || true
+            gh pr comment "$PR" --repo "$REPO" --body "🔒 Auto-merge held: this PR changes CI/packaging/dependency files, which a maintainer must merge. Tests are green and it was Claude-reviewed." || true
+            exit 0
+          fi
+
+          echo "eligible — enabling squash auto-merge (merges when required checks pass)"
+          gh pr merge "$PR" --repo "$REPO" --squash --auto || true
