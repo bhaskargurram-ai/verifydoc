@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.6.0 — 2026-07-22
+
+Journal-grade rigor: larger N, real-data method, and labeling reliability.
+
+- **Grounder numeric-aware matching** — strips thousands separators + currency,
+  so `45500` grounds to `45,500`/`$45,500`. Gold grounding on real CORD went
+  from partial to ~100%; this unlocked the real-data method study.
+- **Novel method on REAL data at scale** (`scripts/grounded_conformal_real.py`):
+  CORD train (~5.5k fields) + full FUNSD (~2.6k fields), 40-split marginal
+  evaluation. On FUNSD, grounding-conditioned conformal lifts coverage from
+  0.24 to 0.71 at a 2% risk guarantee; honest boundary characterization on CORD
+  (short numeric values → ambiguous grounding → limited gain).
+- **Inter-annotator agreement** — `cohens_kappa`/`fleiss_kappa` in
+  `eval/stats.py`; a labeling module (`verifydoc/labeling.py`) + `verifydoc iaa`
+  CLI; a two-protocol agreement study (CORD κ=0.78 robust; FUNSD κ=0.10 shows
+  free-text labels are protocol-dependent). Labeling guide + tooling shipped.
+- **Paper** grown to 7pp with real-data method section, labeling-reliability
+  section, and a strengthened, honest limitations section; refs tidied.
+
 ## v0.5.0 — 2026-07-22
 
 A novel method, a frontier-VLM comparison, and an agent-facing application.

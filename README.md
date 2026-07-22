@@ -145,7 +145,8 @@ buys you.
 - [x] v0.3 — real-model results (RapidOCR + PaddleOCR on CORD/FUNSD)
 - [x] v0.4 — vendor-neutral API-VLM extractor (OpenAI/Anthropic) with k-sample consensus; compilable paper with auto-generated tables
 - [x] v0.5 — **novel method** (grounding-conditioned conformal, +0.50 coverage at fixed risk) + **MCP server** (agent trust layer) + real frontier-VLM results
-- [ ] dots.ocr via vllm; SROIE / DocILE / XFUND slices; human-labeled correctness + IAA
+- [x] v0.6 — method validated on **real data at scale** (FUNSD 24%→71% coverage at 2% risk); inter-annotator-agreement tooling (`verifydoc iaa`); numeric-aware grounding
+- [ ] dots.ocr via vllm; SROIE / DocILE / XFUND slices; human-labeled correctness at scale
 - [ ] Paper submission ([contributions welcome](CONTRIBUTING.md))
 
 ## Documentation
