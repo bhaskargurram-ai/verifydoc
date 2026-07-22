@@ -152,6 +152,7 @@ buys you.
 ## Documentation
 
 - [How it works](docs/how-it-works.md) — the pipeline, the abstention idea, why grounding is a trust signal
+- [Related work & positioning](docs/RELATED_WORK.md) — how VerifyDoc compares to Beyond Logprobs, Cleanlab TLM, conformal factuality, and the commercial IDP stack
 - [Real-model results](paper/generated/REAL_MODELS_RESULTS.md) — RapidOCR + PaddleOCR numbers and reading
 - [GPU runbook](docs/REAL_MODELS.md) — reproduce the real-extractor rows
 - [USP audit](docs/USP.md) · [Paper draft](paper/main.tex) · [Full spec](PROJECT.md)

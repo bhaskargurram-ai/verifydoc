@@ -3,7 +3,7 @@
 from verifydoc.pipeline import VerifiedResult, verify, verify_model
 from verifydoc.types import Document, FieldGold, FieldPrediction, Grounding, Schema
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 __all__ = [
     "Document",

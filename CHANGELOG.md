@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.7.0 — 2026-07-22
+
+Literature-grounded hardening (4-agent SOTA sweep) + production DX.
+
+- **Ambiguity-penalized grounding** — discount support by the number of
+  equally-good matches, so coincidental short-value matches no longer ground
+  falsely. This made the novel method work on real data: CORD coverage
+  0.01→0.72 at a held 10% risk (previously no lift, guarantee violated); FUNSD
+  0.24→0.84 at 2%.
+- **Dynamic schemas** — `Schema.to_json_schema`/`json_schema` reconstruct a
+  JSON Schema from leaves (any dynamic/FUNSD schema works with the API-VLM);
+  `Schema.from_pydantic` + `verify_model` for Pydantic-native extraction.
+- **SOTA metrics** — AUGRC (NeurIPS 2024) and kernel-smoothed ECE (ICLR 2024)
+  added to the harness.
+- **Related work** — `docs/RELATED_WORK.md` + a fully-cited paper Related Work
+  positioning VerifyDoc vs Beyond Logprobs, Cleanlab TLM, CRC-certify,
+  conformal factuality, Gibbs–Candès; paper now 8pp, compiles.
+
+
 ## v0.6.0 — 2026-07-22
 
 Journal-grade rigor: larger N, real-data method, and labeling reliability.
