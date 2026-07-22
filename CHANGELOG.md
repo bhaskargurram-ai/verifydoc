@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.9.0 — 2026-07-22
+
+Free maintenance + more datasets.
+
+- **Free AI PR review via GitHub Models** (`pr-review-free.yml`): reviews every
+  PR using the built-in `GITHUB_TOKEN` — no API key, no cost. The paid Claude
+  reviewer is now an optional upgrade. `docs/AUTOMATION.md` documents the
+  zero-cost maintenance stack.
+- **SROIE loader** (`benchmark/datasets/sroie.py`): receipts with company/date/
+  address/total gold fields + located boxes; wired into the harness dispatch.
+- Contributor `good first issue`s opened for DocILE/XFUND, observability,
+  adaptive-k budgeting, entailment-verified grounding, and currency parsing.
+
+
 ## v0.8.0 — 2026-07-22
 
 Adoption, automation, and repo hygiene.
