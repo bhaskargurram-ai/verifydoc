@@ -76,17 +76,28 @@ class AnthropicClient:
             raise ImportError("AnthropicClient requires: pip install anthropic") from exc
         self._client = anthropic.Anthropic()
         self._model = model
+        self._send_temperature = True  # some newer models deprecate it; detected at runtime
 
     def complete(
         self, system: str, prompt: str, temperature: float = 0.0
     ) -> str:  # pragma: no cover
-        resp = self._client.messages.create(
-            model=self._model,
-            max_tokens=4096,
-            temperature=temperature,
-            system=system,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        kwargs: dict[str, Any] = {
+            "model": self._model,
+            "max_tokens": 4096,
+            "system": system,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        if self._send_temperature:
+            kwargs["temperature"] = temperature
+        try:
+            resp = self._client.messages.create(**kwargs)
+        except Exception as exc:  # model deprecated temperature -> retry without, remember
+            if self._send_temperature and "temperature" in str(exc).lower():
+                self._send_temperature = False
+                kwargs.pop("temperature", None)
+                resp = self._client.messages.create(**kwargs)
+            else:
+                raise
         return "".join(block.text for block in resp.content if block.type == "text")
 
 
