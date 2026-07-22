@@ -1,6 +1,6 @@
 # VerifyDoc — A Trust Layer for Document → Structured-JSON Extraction
 
-**Project document / build spec (v1.0).** This is the single source of truth for building VerifyDoc . It contains the motivation, the precise problem definition, the literature-grounded evaluation methodology (the core of the paper), the system architecture, the repository layout, a six-week implementation plan, the git workflow, and the paper plan. Hand this file (plus `CLAUDE.md`)  and build module by module against the "Definition of Done" in each section.
+**Project document / design spec (v1.0).** This is the single source of truth for VerifyDoc's design. It contains the motivation, the precise problem definition, the literature-grounded evaluation methodology (the core of the paper), the system architecture, the repository layout, a six-week implementation plan, the git workflow, and the paper plan. Build module by module against the "Definition of Done" in each section.
 
 One-liner: *VerifyDoc wraps any document-extraction model and returns, for every field, a calibrated confidence score, a source-grounding box/span, and an abstain-or-accept decision — so a human reviews the 5% of fields that are actually wrong instead of eyeballing all of them.*
 
@@ -216,7 +216,6 @@ Design rules: adapters isolate all model-specific code behind one interface (`ex
 ```
 verifydoc/
 ├── README.md                     # quickstart + the killer demo GIF
-├── CLAUDE.md                     #  working context (see separate file)
 ├── PROJECT.md                    # this document
 ├── LICENSE                       # Apache-2.0 (permissive → adoption)
 ├── pyproject.toml                # packaging (pip install verifydoc)
