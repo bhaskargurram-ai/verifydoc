@@ -5,5 +5,5 @@ extractor: rapidocr
 seed: 7
 k: 1
 calibration_fraction: 0.5
-alphas: [0.02, 0.05]
+alphas: [0.02, 0.05, 0.10]
 n_boot: 300
