@@ -152,11 +152,21 @@ class TestDoclingAdapter:
 
 
 class FakeClient:
-    def __init__(self, payload):
-        self.payload = payload
+    """Records temperatures it was called with; can vary output per call."""
 
-    def complete(self, system, prompt):
+    def __init__(self, payload, payloads=None):
+        self.payload = payload
+        self.payloads = payloads
+        self.temperatures = []
+        self._i = 0
+
+    def complete(self, system, prompt, temperature=0.0):
         assert "Schema" in prompt
+        self.temperatures.append(temperature)
+        if self.payloads is not None:
+            out = self.payloads[self._i % len(self.payloads)]
+            self._i += 1
+            return out
         return self.payload
 
 
@@ -175,6 +185,36 @@ class TestAPIVLMAdapter:
 
     def test_garbage_response_yields_nothing(self):
         assert APIVLMAdapter(client=FakeClient("sorry, no")).extract(make_doc(), SCHEMA) == []
+
+    def test_extract_is_deterministic_temperature_zero(self):
+        client = FakeClient(json.dumps({"total": {"value": 1, "confidence": 0.9}}))
+        APIVLMAdapter(client=client).extract(make_doc(), SCHEMA)
+        assert client.temperatures == [0.0]
+
+    def test_k_sample_uses_positive_temperature(self):
+        # k>1 must sample at temperature>0 so consensus is non-degenerate
+        payloads = [
+            json.dumps({"total": {"value": "42.50", "confidence": 0.8}}),
+            json.dumps({"total": {"value": "42.50", "confidence": 0.8}}),
+            json.dumps({"total": {"value": "45.20", "confidence": 0.8}}),  # disagrees
+        ]
+        client = FakeClient(None, payloads=payloads)
+        adapter = APIVLMAdapter(client=client, sample_temperature=0.7)
+        samples = adapter.extract_samples(make_doc(), SCHEMA, k=3)
+        assert len(samples) == 3
+        assert client.temperatures == [0.7, 0.7, 0.7]
+        # consensus over the 3 samples: 2/3 agree on 42.50
+        from verifydoc.confidence import consensus
+
+        (result,) = [p for p in consensus(samples) if p.path == "total"]
+        assert result.value == "42.50"
+        assert result.confidence == pytest.approx(2 / 3)
+
+    def test_unknown_provider_rejected(self):
+        from verifydoc.adapters.api_vlm import default_client
+
+        with pytest.raises(ValueError, match="unknown provider"):
+            default_client("nope")
 
 
 class TestGrounder:

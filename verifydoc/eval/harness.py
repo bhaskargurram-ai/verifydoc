@@ -176,7 +176,7 @@ def run_benchmark(cfg: dict[str, Any], out_dir: str | Path) -> dict[str, Any]:
     else:
         from verifydoc.adapters import get_adapter
 
-        adapter = get_adapter(extractor)
+        adapter = get_adapter(extractor, **cfg.get("adapter_kwargs", {}))
     pooled = collect(bench, adapter, k=cfg.get("k", 5))
     signals: dict[str, SignalData] = pooled["signals"]
 

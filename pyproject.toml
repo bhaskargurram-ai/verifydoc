@@ -44,6 +44,8 @@ dependencies = [
 pdf = ["pdfplumber>=0.10", "pypdfium2>=4.24", "pillow>=10.0"]
 ui = ["streamlit>=1.30", "pillow>=10.0"]
 data = ["datasets>=2.16"]
+ocr = ["rapidocr>=1.3", "onnxruntime>=1.17"]
+api = ["anthropic>=0.39", "openai>=1.40"]
 dev = [
     "pytest>=7.4",
     "pytest-cov>=4.1",

@@ -1,0 +1,13 @@
+# API-VLM comparison row: a hosted VLM reads the CORD text layer and returns
+# schema fields with self-assessed (verbalized) confidence. k>1 enables real
+# self-consistency consensus (temperature sampling). Needs an API key:
+#   export ANTHROPIC_API_KEY=...   (or OPENAI_API_KEY with provider: openai)
+# Cost is a few dollars for 100 receipts at k=3. See docs/REAL_MODELS.md.
+dataset: cord
+split: validation
+limit: 100
+extractor: api-vlm
+k: 3                       # self-consistency: makes consensus + verbalized meaningful
+calibration_fraction: 0.5
+alphas: [0.02, 0.05]
+n_boot: 300
