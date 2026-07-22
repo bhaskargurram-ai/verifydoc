@@ -151,6 +151,7 @@ buys you.
 
 ## Documentation
 
+- [Framework integrations](docs/INTEGRATIONS.md) — drop-in trust layer for Instructor, Pydantic-AI, Outlines, LangChain
 - [How it works](docs/how-it-works.md) — the pipeline, the abstention idea, why grounding is a trust signal
 - [Related work & positioning](docs/RELATED_WORK.md) — how VerifyDoc compares to Beyond Logprobs, Cleanlab TLM, conformal factuality, and the commercial IDP stack
 - [Real-model results](paper/generated/REAL_MODELS_RESULTS.md) — RapidOCR + PaddleOCR numbers and reading
