@@ -94,8 +94,8 @@ Every metric implements the exact definition in [PROJECT.md §5](PROJECT.md) wit
 ## Results on real documents
 
 Two independent real OCR extractors (**RapidOCR** and **PaddleOCR**) on real
-**CORD** receipts and **FUNSD** forms, scored by the harness
-([full tables + reading](paper/generated/REAL_MODELS_RESULTS.md)):
+**CORD** receipts and **FUNSD** forms, scored by the harness (regenerate the
+full tables locally with `make results`):
 
 | Confidence signal | ranks errors? | CORD AUROC (RapidOCR / PaddleOCR) |
 |---|---|---|
@@ -117,7 +117,7 @@ self-reported and single-sample-consensus confidence do not.**
 ## The benchmark
 
 ```bash
-make results     # regenerates every table/figure in paper/generated from configs/
+make results     # regenerates every benchmark table/figure from configs/ (local output)
 ```
 
 The harness runs **signals × calibrators × the full metric suite** with a
@@ -135,7 +135,7 @@ just stated.
 Because it doesn't exist (Docling/MinerU/Marker), or it's a raw recognition
 score that was never calibrated against field-level correctness
 (PaddleOCR/dots.ocr). See [docs/USP.md](docs/USP.md) for the audit, and the
-reliability diagrams in `paper/generated/` for what "calibrated" actually
+reliability diagrams `make results` produces for what "calibrated" actually
 buys you.
 
 ## Roadmap
@@ -154,9 +154,9 @@ buys you.
 - [Framework integrations](docs/INTEGRATIONS.md) — drop-in trust layer for Instructor, Pydantic-AI, Outlines, LangChain
 - [How it works](docs/how-it-works.md) — the pipeline, the abstention idea, why grounding is a trust signal
 - [Related work & positioning](docs/RELATED_WORK.md) — how VerifyDoc compares to Beyond Logprobs, Cleanlab TLM, conformal factuality, and the commercial IDP stack
-- [Real-model results](paper/generated/REAL_MODELS_RESULTS.md) — RapidOCR + PaddleOCR numbers and reading
+- [Framework integrations](docs/INTEGRATIONS.md) — Instructor / Pydantic / LangChain drop-in
 - [GPU runbook](docs/REAL_MODELS.md) — reproduce the real-extractor rows
-- [USP audit](docs/USP.md) · [Paper draft](paper/main.tex) · [Full spec](PROJECT.md)
+- [USP audit](docs/USP.md) · [Full spec](PROJECT.md)
 
 ## Development
 

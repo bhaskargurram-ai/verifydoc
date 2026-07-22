@@ -21,7 +21,7 @@ from verifydoc.eval.harness import run_benchmark  # noqa: E402
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/demo.yaml")
-    parser.add_argument("--out", default="paper/generated")
+    parser.add_argument("--out", default="results")
     args = parser.parse_args()
 
     cfg = yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))

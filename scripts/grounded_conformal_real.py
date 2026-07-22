@@ -12,7 +12,7 @@ which is inflated and near-uninformative --- exactly the frontier-VLM regime.
 Provenance (grounded vs ungrounded) is the orthogonal signal. We compare pooled
 split-conformal against grounding-conditioned conformal at matched target risk.
 
-Writes paper/generated/grouped_conformal_real.{md,tex}. Offline (one dataset
+Writes results/grouped_conformal_real.{md,tex}. Offline (one dataset
 download, then cached); deterministic.
 
 Usage: python scripts/grounded_conformal_real.py
@@ -120,7 +120,7 @@ def main() -> None:
     evaluate(cord.load(split="train", limit=400), "cord(real,n=400)", rows)
     evaluate(funsd.load(split="training") + funsd.load(split="testing"), "funsd(real,n=194)", rows)
 
-    out = Path("paper/generated/grouped_conformal_real.md")
+    out = Path("results/grouped_conformal_real.md")
     cols = list(rows[0].keys())
     lines = [
         "# Grounding-conditioned vs pooled conformal on REAL documents",

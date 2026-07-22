@@ -2,7 +2,7 @@
 """Controlled study of grounding-conditioned (Mondrian) conformal risk control.
 
 Isolates the mechanism in the regime we actually measured on the frontier VLM
-(paper/generated/cord-apivlm): the model's confidence score is inflated and
+(results/cord-apivlm): the model's confidence score is inflated and
 near-uninformative for ranking errors, while *grounding* strongly predicts
 correctness. In that regime a single pooled conformal threshold must abstain
 broadly, whereas conditioning the threshold on provenance accepts the reliable
@@ -17,7 +17,7 @@ is not confounded by extractor or OCR-formatting artifacts:
     with correctness --- as observed for the real VLM.
 Reports, for several conditions, pooled vs grounding-conditioned coverage and
 the achieved (guaranteed) selective risk. Writes
-paper/generated/grouped_conformal.{md}.
+results/grouped_conformal.{md}.
 
 Usage: python scripts/grouped_conformal_experiment.py
 """
@@ -124,7 +124,7 @@ def _write_figure(rows: list[dict], path: Path) -> None:
 def main() -> None:
     rows = [_run_condition(*c) for c in CONDITIONS]
     cols = list(rows[0].keys())
-    out = Path("paper/generated/grouped_conformal.md")
+    out = Path("results/grouped_conformal.md")
     out.parent.mkdir(parents=True, exist_ok=True)
     lines = [
         f"# Grounding-conditioned vs pooled conformal (controlled study, alpha={ALPHA})",

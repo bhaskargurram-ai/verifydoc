@@ -8,7 +8,7 @@ outputs rather than a simulation. API calls are parallelized.
 
 Outputs:
   data/apivlm_perfield.json                 — raw per-field records (cached)
-  paper/generated/grouped_conformal_apivlm.md — method vs pooled on real VLM data
+  results/grouped_conformal_apivlm.md — method vs pooled on real VLM data
 
 Env: ANTHROPIC_API_KEY (or OPENAI_API_KEY with --provider openai).
 Usage: python scripts/apivlm_perfield.py [--limit 150] [--provider anthropic]
@@ -145,7 +145,7 @@ def main() -> None:
 
     rows: list[dict] = []
     evaluate(records, rows)
-    out = Path("paper/generated/grouped_conformal_apivlm.md")
+    out = Path("results/grouped_conformal_apivlm.md")
     cols = list(rows[0].keys())
     lines = [
         "# Grounding-conditioned vs pooled conformal on REAL frontier-VLM outputs",

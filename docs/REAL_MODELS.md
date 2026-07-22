@@ -1,7 +1,7 @@
 # Running real extractors (GPU runbook)
 
 The same harness, with a real extractor instead of the simulated one
-(issue #3). Reproduces `paper/generated/{cord,funsd}-{rapidocr,paddleocr}/`.
+(issue #3). Reproduces `the local results directory`.
 
 ## Hard-won environment notes (read first)
 
@@ -68,7 +68,7 @@ CORD/FUNSD images are exported automatically (`with_images`).
 
 Pin model versions in the table header (`rapidocr==x`, `paddleocr==3.1.0`,
 GPU + driver). Results feed the paper via `make results`; see
-`paper/generated/REAL_MODELS_RESULTS.md` for the current numbers and reading.
+the local `make results` output for the current numbers and reading.
 
 ## Cloud
 

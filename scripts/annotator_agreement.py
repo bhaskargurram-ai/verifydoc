@@ -11,7 +11,7 @@ This is a protocol-vs-protocol agreement (automatic), an honest lower-bound
 proxy for the human inter-annotator agreement a full release would add; the
 human-labeling tooling (`verifydoc.labeling`) and guide are shipped alongside.
 
-Writes paper/generated/annotator_agreement.md. Offline; deterministic.
+Writes results/annotator_agreement.md. Offline; deterministic.
 """
 
 from __future__ import annotations
@@ -66,7 +66,7 @@ def main() -> None:
             {"dataset": name, "n_fields": len(exact), "raw_agreement": agree, "cohens_kappa": kappa}
         )
 
-    out = Path("paper/generated/annotator_agreement.md")
+    out = Path("results/annotator_agreement.md")
     out.parent.mkdir(parents=True, exist_ok=True)
     cols = ["dataset", "n_fields", "raw_agreement", "cohens_kappa"]
     lines = [
