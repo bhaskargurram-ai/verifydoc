@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.5.0 — 2026-07-22
+
+A novel method, a frontier-VLM comparison, and an agent-facing application.
+
+- **Novel method — grounding-conditioned (Mondrian) conformal risk control**
+  (`verifydoc/calibration/grouped_conformal.py`): conditions the abstention
+  threshold on provenance, preserving a finite-sample per-group risk guarantee
+  while accepting well-grounded fields at a lower bar. Controlled study
+  (`scripts/grouped_conformal_experiment.py`): **+0.50 mean coverage** at a
+  fixed 5% risk in the uninformative-confidence regime where pooled conformal
+  accepts almost nothing. First use of provenance as the conditioning taxonomy
+  for conformal in document extraction.
+- **Frontier VLM results** (`claude-sonnet-5`, k=3, on CORD): recall 0.56 but a
+  **0.48 hallucination rate**; verbalized confidence is informative (AUROC
+  0.86) for the VLM yet useless (0.50) for OCR pipelines — a cross-extractor
+  finding the single-model literature misses. Cross-extractor summary in
+  `paper/generated/REAL_MODELS_RESULTS.md`.
+- **MCP server** (`verifydoc-mcp`): exposes `verify_extraction` over the Model
+  Context Protocol so AI agents extract documents with confidence + grounding +
+  accept/review — a drop-in trust layer for the agentic era (`docs/MCP.md`).
+- Paper elevated to a method contribution (6pp, compiles; novel result in the
+  abstract and a dedicated section). `mcp` install extra.
+
 ## v0.4.0 — 2026-07-21
 
 Paper-ready: fair API-VLM comparison + a compilable paper.

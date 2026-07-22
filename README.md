@@ -84,7 +84,7 @@ Schemas are plain JSON Schema, with each leaf optionally declaring **how it is s
 |---|---|---|
 | **Adapters** (all model code isolated here) | mock · text-search · RapidOCR · PaddleOCR · dots.ocr · Docling/MinerU output · API-VLM (OpenAI/Anthropic) | ✅ |
 | **Confidence signals** | token-prob · verbalized · consensus (k-sample voting) · grounding-based · combined | ✅ |
-| **Calibrators** (fit on a dedicated split, never test) | temperature · Platt · isotonic · histogram · **split conformal** with finite-sample risk guarantee | ✅ |
+| **Calibrators** (fit on a dedicated split, never test) | temperature · Platt · isotonic · histogram · **split conformal** · **grounding-conditioned (Mondrian) conformal** (novel — recovers coverage a pooled threshold forfeits) | ✅ |
 | **Grounding** | value → page/bbox/char-span attachment with support scores | ✅ |
 | **Policy** | empirical & conformal accept thresholds for a target selective risk | ✅ |
 | **Eval harness / VerifyDocBench scorer** | Field-F1 · exact · CER/WER · ANLS · TEDS/TEDS-Struct · GriTS · omission vs hallucination · ECE/Adaptive-ECE/MCE/Brier/NLL/TCE · RC/AURC/E-AURC/Coverage@Risk/AUROC/AUPR/FPR@95 · box IoU/span-F1/grounding-conditioned correctness · bootstrap CIs + paired tests | ✅ |
@@ -144,7 +144,7 @@ buys you.
 - [x] v0.2 — CORD + FUNSD real slices with gold boxes; learned combiner; 1000× faster grounder
 - [x] v0.3 — real-model results (RapidOCR + PaddleOCR on CORD/FUNSD)
 - [x] v0.4 — vendor-neutral API-VLM extractor (OpenAI/Anthropic) with k-sample consensus; compilable paper with auto-generated tables
-- [ ] Run the API-VLM row at scale (fair verbalized + consensus comparison; needs an API key)
+- [x] v0.5 — **novel method** (grounding-conditioned conformal, +0.50 coverage at fixed risk) + **MCP server** (agent trust layer) + real frontier-VLM results
 - [ ] dots.ocr via vllm; SROIE / DocILE / XFUND slices; human-labeled correctness + IAA
 - [ ] Paper submission ([contributions welcome](CONTRIBUTING.md))
 
