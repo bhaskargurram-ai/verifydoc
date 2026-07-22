@@ -97,6 +97,30 @@ def _fmt(v):
     return f"{v:.4f}" if isinstance(v, float) else str(v)
 
 
+def _write_figure(rows: list[dict], path: Path) -> None:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    labels = [f"g={r['p_grnd']:.0%}\nacc {r['acc_grnd']:.2f}/{r['acc_ungrnd']:.2f}" for r in rows]
+    x = np.arange(len(rows))
+    pooled = [r["cov_pooled"] for r in rows]
+    grouped = [r["cov_grounded"] for r in rows]
+    fig, ax = plt.subplots(figsize=(7, 4))
+    ax.bar(x - 0.2, pooled, 0.4, label="pooled conformal", color="#c8c2b6")
+    ax.bar(x + 0.2, grouped, 0.4, label="grounding-conditioned", color="#1a7f37")
+    ax.axhline(0, color="k", linewidth=0.5)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=8)
+    ax.set_ylabel(f"coverage @ {ALPHA:.0%} risk guarantee")
+    ax.set_title("Grounding-conditioned conformal recovers coverage pooling forfeits")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+
+
 def main() -> None:
     rows = [_run_condition(*c) for c in CONDITIONS]
     cols = list(rows[0].keys())
@@ -114,6 +138,8 @@ def main() -> None:
     ]
     lines += ["| " + " | ".join(_fmt(r[c]) for c in cols) + " |" for r in rows]
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    _write_figure(rows, out.parent / "grouped_conformal.png")
 
     lift = float(np.mean([r["cov_lift"] for r in rows]))
     held = all(r["held"] for r in rows)
