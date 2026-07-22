@@ -2,6 +2,10 @@
 
 from verifydoc.calibration.base import Calibrator
 from verifydoc.calibration.conformal import ConformalAbstention
+from verifydoc.calibration.grouped_conformal import (
+    GroupConformalAbstention,
+    grounded_group,
+)
 from verifydoc.calibration.histogram import HistogramBinning
 from verifydoc.calibration.isotonic import IsotonicCalibrator
 from verifydoc.calibration.platt import PlattScaling
@@ -11,6 +15,8 @@ from verifydoc.calibration.temperature import TemperatureScaling
 __all__ = [
     "Calibrator",
     "ConformalAbstention",
+    "GroupConformalAbstention",
+    "grounded_group",
     "HistogramBinning",
     "IsotonicCalibrator",
     "PlattScaling",
