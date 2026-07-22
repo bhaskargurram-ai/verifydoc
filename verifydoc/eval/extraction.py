@@ -100,6 +100,7 @@ def anls(preds: list[str], golds: list[str], tau: float = 0.5) -> float:
 
 _WS_RE = re.compile(r"\s+")
 _NUM_CLEAN_RE = re.compile(r"[$€£%\s]")
+_CURRENCY_CODE_RE = re.compile(r"^[A-Za-z]{1,5}(?=\d)|(?<=\d)[A-Za-z]{1,5}$")
 _THOUSANDS_RE = re.compile(r"^-?\d{1,3}(,\d{3})+(\.\d+)?$")
 
 
@@ -112,13 +113,16 @@ def parse_number(value: Any) -> float | None:
     """Parse a numeric value out of common document formats ($1,234.50 etc.).
 
     Comma handling: 3-digit groups (``1,234.50``) are thousands separators;
-    otherwise a comma with no dot (``42,5``) is a decimal comma.
+    otherwise a comma with no dot (``42,5``) is a decimal comma. A leading or
+    trailing alphabetic currency code adjacent to the digits (``RM 45.50``,
+    ``45.50 USD``) is stripped the same way the $/€/£ symbols are.
     """
     if isinstance(value, bool):
         return float(value)
     if isinstance(value, (int, float)):
         return float(value)
     text = _NUM_CLEAN_RE.sub("", str(value))
+    text = _CURRENCY_CODE_RE.sub("", text)
     if _THOUSANDS_RE.match(text) or ("," in text and "." in text):
         text = text.replace(",", "")
     elif "," in text:
