@@ -37,3 +37,11 @@ outputs/
 .DS_Store
 .idea/
 .vscode/
+
+# LaTeX build artifacts
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.bbl
+paper/*.blg
+paper/main.pdf
