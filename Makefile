@@ -30,12 +30,14 @@ results:
 	$(PY) scripts/run_benchmark.py --config configs/funsd.yaml --out paper/generated/funsd
 	$(PY) scripts/grouped_conformal_experiment.py
 	$(PY) scripts/grounded_conformal_real.py
+	$(PY) scripts/annotator_agreement.py
 	$(PY) scripts/tables_to_latex.py paper/generated
 
 # Compile the paper (needs a LaTeX toolchain); tables come from `make results`.
 paper:
 	$(PY) scripts/grouped_conformal_experiment.py
 	$(PY) scripts/grounded_conformal_real.py
+	$(PY) scripts/annotator_agreement.py
 	$(PY) scripts/tables_to_latex.py paper/generated
 	cd paper && pdflatex -interaction=nonstopmode main.tex && bibtex main && pdflatex -interaction=nonstopmode main.tex && pdflatex -interaction=nonstopmode main.tex
 

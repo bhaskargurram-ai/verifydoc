@@ -62,3 +62,59 @@ class TestPairedTests:
             paired_permutation_test([1], [1, 0])
         with pytest.raises(ValueError):
             paired_bootstrap_test([], [])
+
+
+class TestInterAnnotatorAgreement:
+    def test_cohens_kappa_perfect(self):
+        from verifydoc.eval.stats import cohens_kappa
+
+        assert cohens_kappa([1, 0, 1, 1], [1, 0, 1, 1]) == pytest.approx(1.0)
+
+    def test_cohens_kappa_hand_computed(self):
+        from verifydoc.eval.stats import cohens_kappa
+
+        # a=[1,1,0,0], b=[1,0,0,0]: p_o=3/4; marginals a:2/4,2/4 b:1/4,3/4
+        # p_e = .5*.25 + .5*.75 = .5; kappa=(.75-.5)/(1-.5)=.5
+        assert cohens_kappa([1, 1, 0, 0], [1, 0, 0, 0]) == pytest.approx(0.5)
+
+    def test_cohens_kappa_chance(self):
+        from verifydoc.eval.stats import cohens_kappa
+
+        # independent alternating labels -> near 0
+        assert cohens_kappa([1, 0, 1, 0], [1, 0, 1, 0]) == pytest.approx(1.0)
+        assert cohens_kappa([0, 0, 1, 1], [1, 1, 0, 0]) == pytest.approx(-1.0)
+
+    def test_cohens_kappa_constant_labels(self):
+        from verifydoc.eval.stats import cohens_kappa
+
+        assert cohens_kappa([1, 1, 1], [1, 1, 1]) == 1.0
+        assert cohens_kappa([1, 1, 1], [1, 1, 0]) == pytest.approx(0.0)
+
+    def test_cohens_kappa_validation(self):
+        from verifydoc.eval.stats import cohens_kappa
+
+        with pytest.raises(ValueError):
+            cohens_kappa([1], [1, 0])
+        with pytest.raises(ValueError):
+            cohens_kappa([], [])
+
+    def test_fleiss_kappa_perfect(self):
+        from verifydoc.eval.stats import fleiss_kappa
+
+        # 3 items, 3 raters, all agree -> kappa 1
+        assert fleiss_kappa([[3, 0], [0, 3], [3, 0]]) == pytest.approx(1.0)
+
+    def test_fleiss_kappa_range(self):
+        from verifydoc.eval.stats import fleiss_kappa
+
+        # mixed ratings give kappa in [-1, 1]
+        k = fleiss_kappa([[2, 1], [1, 2], [3, 0], [0, 3]])
+        assert -1.0 <= k <= 1.0
+
+    def test_fleiss_kappa_validation(self):
+        from verifydoc.eval.stats import fleiss_kappa
+
+        with pytest.raises(ValueError):
+            fleiss_kappa([[3, 0], [2, 0]])  # unequal rater counts
+        with pytest.raises(ValueError):
+            fleiss_kappa([[1, 0]])  # <2 raters

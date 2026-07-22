@@ -1,8 +1,9 @@
 """Statistical rigor utilities (PROJECT.md §5.H).
 
-Bootstrap 95% confidence intervals (percentile method, field-level resampling)
-and paired significance tests (sign-flip permutation and paired bootstrap) for
-model-vs-model claims. All routines are seeded and deterministic.
+Bootstrap 95% confidence intervals (percentile method, field-level resampling),
+paired significance tests (sign-flip permutation and paired bootstrap) for
+model-vs-model claims, and inter-annotator agreement (Cohen's / Fleiss' kappa)
+for labeling reliability. All routines are seeded and deterministic.
 """
 
 from __future__ import annotations
@@ -13,6 +14,48 @@ from dataclasses import dataclass
 import numpy as np
 
 Statistic = Callable[..., float]
+
+
+def cohens_kappa(labels_a: Sequence[object], labels_b: Sequence[object]) -> float:
+    """Cohen's kappa: chance-corrected agreement between two annotators.
+
+    kappa = (p_o - p_e) / (1 - p_e), where p_o is observed agreement and p_e is
+    the agreement expected by chance from each annotator's marginal label rates.
+    Returns 1.0 for perfect agreement, 0 for chance-level, <0 for worse. If both
+    annotators use a single constant label (p_e == 1), returns 1.0 iff they
+    agree everywhere.
+    """
+    a, b = list(labels_a), list(labels_b)
+    if len(a) != len(b) or not a:
+        raise ValueError("label sequences must be equal-length and non-empty")
+    n = len(a)
+    p_o = sum(x == y for x, y in zip(a, b)) / n
+    cats = set(a) | set(b)
+    p_e = sum((a.count(c) / n) * (b.count(c) / n) for c in cats)
+    if p_e >= 1.0:
+        return 1.0 if p_o >= 1.0 else 0.0
+    return (p_o - p_e) / (1.0 - p_e)
+
+
+def fleiss_kappa(rating_counts: Sequence[Sequence[int]]) -> float:
+    """Fleiss' kappa for >=2 annotators. ``rating_counts[i][k]`` = number of
+    annotators who assigned category k to item i (every row sums to the same
+    n_annotators). Chance-corrected agreement across all raters.
+    """
+    m = np.asarray(rating_counts, dtype=float)
+    if m.ndim != 2 or m.shape[0] == 0:
+        raise ValueError("rating_counts must be a non-empty items x categories matrix")
+    n_raters = m.sum(axis=1)
+    if not np.allclose(n_raters, n_raters[0]) or n_raters[0] < 2:
+        raise ValueError("every item must be rated by the same number (>=2) of annotators")
+    n = float(n_raters[0])
+    p_i = (np.square(m).sum(axis=1) - n) / (n * (n - 1.0))  # per-item agreement
+    p_bar = float(p_i.mean())
+    p_j = m.sum(axis=0) / (m.shape[0] * n)  # category marginals
+    p_e = float(np.square(p_j).sum())
+    if p_e >= 1.0:
+        return 1.0 if p_bar >= 1.0 else 0.0
+    return (p_bar - p_e) / (1.0 - p_e)
 
 
 @dataclass

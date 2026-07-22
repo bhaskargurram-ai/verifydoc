@@ -44,5 +44,18 @@ def version() -> None:
     typer.echo(verifydoc.__version__)
 
 
+@app.command()
+def iaa(
+    label_files: list[Path] = typer.Argument(..., help="Annotator label JSON files (>=2)."),
+) -> None:
+    """Inter-annotator agreement (Cohen's / Fleiss' kappa) from label files."""
+    from verifydoc.labeling import iaa_report, load_annotations
+
+    report = iaa_report(load_annotations(list(label_files)))
+    typer.echo(report.interpret())
+    for (a, b), k in sorted(report.pairwise_cohen.items()):
+        typer.echo(f"  {a} vs {b}: Cohen's kappa = {k:.3f}")
+
+
 if __name__ == "__main__":  # pragma: no cover
     app()
