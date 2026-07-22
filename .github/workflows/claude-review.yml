@@ -111,15 +111,16 @@ jobs:
 
           approve = "VERDICT: APPROVE" in text.upper()
           pr = os.environ["PR"]
+          repo = os.environ["REPO"]  # no checkout, so gh needs --repo to resolve the PR
           comment = (
               "### 🤖 Claude review\n\n" + text +
               "\n\n_Automated review — advisory, not a security boundary. "
               "CI (ruff/black/mypy/pytest) is the merge gate._"
           )
-          subprocess.run(["gh", "pr", "comment", pr, "--body", comment], check=False)
+          subprocess.run(["gh", "pr", "comment", pr, "--repo", repo, "--body", comment], check=False)
           add = "claude-approved" if approve else "claude-changes-requested"
           rm = "claude-changes-requested" if approve else "claude-approved"
-          subprocess.run(["gh", "pr", "edit", pr, "--add-label", add], check=False)
-          subprocess.run(["gh", "pr", "edit", pr, "--remove-label", rm], check=False)
+          subprocess.run(["gh", "pr", "edit", pr, "--repo", repo, "--add-label", add], check=False)
+          subprocess.run(["gh", "pr", "edit", pr, "--repo", repo, "--remove-label", rm], check=False)
           print("posted review; verdict:", "APPROVE" if approve else "REQUEST_CHANGES")
           PY
