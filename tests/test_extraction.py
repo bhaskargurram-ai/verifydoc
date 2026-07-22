@@ -55,6 +55,13 @@ class TestValueScoring:
         assert parse_number(7) == 7.0
         assert parse_number("n/a") is None
 
+    def test_parse_number_strips_currency_codes(self):
+        assert parse_number("RM 45.50") == pytest.approx(45.50)
+        assert parse_number("USD 1,234.56") == pytest.approx(1234.56)
+        assert parse_number("EUR 42") == pytest.approx(42.0)
+        assert parse_number("45.50 RM") == pytest.approx(45.50)
+        assert parse_number("Rp 42,5") == pytest.approx(42.5)
+
     def test_numeric_rule(self):
         gold = FieldGold(path="total", value=42.50, scoring="numeric", numeric_tol=0.01)
         assert value_correct("$42.50", gold)

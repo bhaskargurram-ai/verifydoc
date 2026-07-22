@@ -99,6 +99,7 @@ def anls(preds: list[str], golds: list[str], tau: float = 0.5) -> float:
 # ---------------------------------------------------------------------------
 
 _WS_RE = re.compile(r"\s+")
+_CURRENCY_CODE_RE = re.compile(r"^[A-Za-z]{2,4}\s+|\s+[A-Za-z]{2,4}$")
 _NUM_CLEAN_RE = re.compile(r"[$€£%\s]")
 _THOUSANDS_RE = re.compile(r"^-?\d{1,3}(,\d{3})+(\.\d+)?$")
 
@@ -118,7 +119,10 @@ def parse_number(value: Any) -> float | None:
         return float(value)
     if isinstance(value, (int, float)):
         return float(value)
-    text = _NUM_CLEAN_RE.sub("", str(value))
+    # Strip leading/trailing alphabetic currency codes (RM, Rp, USD, etc.)
+    # before numeric cleaning so they don't end up glued to digits.
+    text = _CURRENCY_CODE_RE.sub("", str(value)).strip()
+    text = _NUM_CLEAN_RE.sub("", text)
     if _THOUSANDS_RE.match(text) or ("," in text and "." in text):
         text = text.replace(",", "")
     elif "," in text:
