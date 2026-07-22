@@ -142,8 +142,10 @@ class APIVLMAdapter(ExtractorAdapter):
 
     def _extract(self, doc: Document, schema: Schema, temperature: float) -> list[FieldPrediction]:
         text = "\n\f\n".join(page.text or "" for page in doc.pages)
+        # json_schema falls back to a reconstruction from leaves, so dynamic
+        # per-document schemas (e.g. FUNSD) prompt correctly too.
         prompt = (
-            f"Schema (JSON Schema):\n{json.dumps(schema.raw)}\n\n"
+            f"Schema (JSON Schema):\n{json.dumps(schema.json_schema)}\n\n"
             f"Document text:\n{text}\n\n"
             "Extract every schema field you can find."
         )

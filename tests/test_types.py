@@ -152,3 +152,65 @@ class TestSchemaAliases:
             }
         )
         assert schema.leaves[0].aliases == ["total", "grand total"]
+
+
+class TestSchemaRoundTrip:
+    def test_to_json_schema_roundtrip(self):
+        raw = {
+            "type": "object",
+            "required": ["invoice_id"],
+            "properties": {
+                "invoice_id": {"type": "string"},
+                "vendor": {"type": "string", "x-scoring": "semantic"},
+                "total": {"type": "number", "x-numeric-tol": 0.01},
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "price": {"type": "number"},
+                        },
+                    },
+                },
+            },
+        }
+        s1 = Schema.from_json_schema(raw)
+        rebuilt = s1.to_json_schema()
+        # round-trip preserves the leaf set + scoring
+        s2 = Schema.from_json_schema(rebuilt)
+        assert {(lf.path, lf.scoring) for lf in s1.leaves} == {
+            (lf.path, lf.scoring) for lf in s2.leaves
+        }
+
+    def test_dynamic_schema_reconstructs_when_no_raw(self):
+        # a schema built directly from leaves (no raw JSON Schema) still yields one
+        from verifydoc.types import SchemaLeaf
+
+        s = Schema(
+            name="funsd-like",
+            leaves=[
+                SchemaLeaf(path="date", type="string", scoring="semantic"),
+                SchemaLeaf(path="to", type="string", scoring="semantic"),
+            ],
+        )
+        assert s.raw == {}
+        js = s.json_schema
+        assert js["type"] == "object"
+        assert set(js["properties"]) == {"date", "to"}
+        # and it round-trips back to the same leaves
+        assert {lf.path for lf in Schema.from_json_schema(js).leaves} == {"date", "to"}
+
+    def test_nested_and_array_reconstruction(self):
+        from verifydoc.types import SchemaLeaf
+
+        s = Schema(
+            leaves=[
+                SchemaLeaf(path="total.amount", type="number", scoring="numeric"),
+                SchemaLeaf(path="items[].price", type="number", scoring="numeric"),
+            ]
+        )
+        js = s.to_json_schema()
+        assert js["properties"]["total"]["type"] == "object"
+        assert js["properties"]["items"]["type"] == "array"
+        assert js["properties"]["items"]["items"]["properties"]["price"]["type"] == "number"

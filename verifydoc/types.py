@@ -146,6 +146,61 @@ class Schema(BaseModel):
         _walk_json_schema(raw, "", leaves, required=True)
         return cls(name=name, leaves=leaves, raw=raw)
 
+    def to_json_schema(self) -> dict[str, Any]:
+        """Reconstruct a JSON Schema dict from the leaves.
+
+        Makes a schema built directly from leaves (e.g. a dynamic per-document
+        FUNSD schema) usable anywhere a JSON Schema is expected — notably the
+        API-VLM adapter's prompt. Round-trips with ``from_json_schema``.
+        """
+        root: dict[str, Any] = {"type": "object", "properties": {}}
+        for leaf in self.leaves:
+            _insert_leaf_schema(root, leaf)
+        return root
+
+    @property
+    def json_schema(self) -> dict[str, Any]:
+        """The source JSON Schema if present, else one reconstructed from leaves."""
+        return self.raw if self.raw else self.to_json_schema()
+
+
+def _leaf_to_schema(leaf: SchemaLeaf) -> dict[str, Any]:
+    """One scored leaf → its JSON Schema scalar node (with x-* annotations)."""
+    default_scoring = "numeric" if leaf.type in ("number", "integer") else "exact"
+    node: dict[str, Any] = {"type": leaf.type}
+    if leaf.scoring != default_scoring:
+        node["x-scoring"] = leaf.scoring
+    if leaf.numeric_tol != 1e-6:
+        node["x-numeric-tol"] = leaf.numeric_tol
+    if leaf.aliases:
+        node["x-aliases"] = list(leaf.aliases)
+    return node
+
+
+def _insert_leaf_schema(root: dict[str, Any], leaf: SchemaLeaf) -> None:
+    """Insert a leaf into a JSON Schema, creating nested objects/arrays by path."""
+    segments = leaf.path.split(".")
+    node = root
+    for i, seg in enumerate(segments):
+        is_array = seg.endswith("[]")
+        name = seg[:-2] if is_array else seg
+        is_last = i == len(segments) - 1
+        props = node.setdefault("properties", {})
+        if is_last:
+            scalar = _leaf_to_schema(leaf)
+            props[name] = {"type": "array", "items": scalar} if is_array else scalar
+            if leaf.required:
+                req = node.setdefault("required", [])
+                if name not in req:
+                    req.append(name)
+        elif is_array:
+            child = props.setdefault(name, {"type": "array", "items": {"type": "object"}})
+            child.setdefault("items", {"type": "object"})
+            node = child["items"]
+        else:
+            child = props.setdefault(name, {"type": "object"})
+            node = child
+
 
 def _walk_json_schema(
     node: dict[str, Any], prefix: str, out: list[SchemaLeaf], required: bool
