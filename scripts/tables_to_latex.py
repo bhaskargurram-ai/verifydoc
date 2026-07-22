@@ -11,7 +11,6 @@ Usage: python scripts/tables_to_latex.py [paper/generated]
 
 from __future__ import annotations
 
-import re
 import sys
 from pathlib import Path
 
