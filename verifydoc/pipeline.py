@@ -85,6 +85,20 @@ def load_schema(schema: Schema | dict[str, Any] | str | Path) -> Schema:
     return Schema.from_json_schema(json.loads(path.read_text(encoding="utf-8")), name=path.stem)
 
 
+def verify_model(
+    source: Document | str | Path,
+    model: type,
+    **kwargs: Any,
+) -> VerifiedResult:
+    """Verify a document against a Pydantic model (engineer-friendly entrypoint).
+
+    ``model`` is a ``pydantic.BaseModel`` subclass; its fields become the target
+    schema (types → scoring rules). Returns the same trust-annotated result as
+    :func:`verify`; ``kwargs`` are forwarded (adapter, k, calibrator, threshold).
+    """
+    return verify(source, Schema.from_pydantic(model), **kwargs)
+
+
 def verify(
     source: Document | str | Path,
     schema: Schema | dict[str, Any] | str | Path,

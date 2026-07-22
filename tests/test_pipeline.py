@@ -420,3 +420,77 @@ class TestGrounderNumericMatch:
         doc = document_from_text("r", ["Name: Smith, John"])
         (out,) = ground_predictions([FieldPrediction(path="n", value="Smith, John")], doc)
         assert out.grounding is not None and out.grounding.support == pytest.approx(1.0)
+
+
+class TestVerifyModel:
+    def test_pydantic_model_extraction(self):
+        from pydantic import BaseModel
+
+        from verifydoc import verify_model
+
+        class Invoice(BaseModel):
+            invoice_id: str
+            vendor: str
+            total: float
+
+        result = verify_model(make_doc(), Invoice)
+        by_path = {f.path: f for f in result.fields}
+        assert by_path["invoice_id"].value == "INV-2024-001"
+        assert by_path["total"].value == "$1,234.50"
+
+    def test_from_pydantic_scoring_rules(self):
+        from pydantic import BaseModel
+
+        from verifydoc.types import Schema
+
+        class M(BaseModel):
+            name: str
+            amount: float
+            count: int
+
+        leaves = {lf.path: lf for lf in Schema.from_pydantic(M).leaves}
+        assert leaves["name"].scoring == "semantic"
+        assert leaves["amount"].scoring == "numeric" and leaves["amount"].type == "number"
+        assert leaves["count"].type == "integer"
+
+    def test_from_pydantic_optional_and_nested(self):
+
+        from pydantic import BaseModel
+
+        from verifydoc.types import Schema
+
+        class Line(BaseModel):
+            price: float
+
+        class Doc(BaseModel):
+            ref: str
+            note: str | None = None
+            lines: list[Line]
+
+        paths = {lf.path for lf in Schema.from_pydantic(Doc).leaves}
+        assert "ref" in paths and "note" in paths and "lines[].price" in paths
+        note = next(lf for lf in Schema.from_pydantic(Doc).leaves if lf.path == "note")
+        assert not note.required
+
+
+class TestGroundingAmbiguity:
+    def test_ambiguous_short_value_penalized(self):
+        # "2" appears many times -> ambiguous -> low support (not falsely confident)
+        doc = document_from_text("r", ["qty 2 price 2 tax 2 total 2 items 2"])
+        (out,) = ground_predictions([FieldPrediction(path="q", value="2")], doc, min_support=0.0)
+        assert out.grounding is not None
+        assert out.grounding.support < 0.3  # 1.0 / ~5 occurrences
+
+    def test_unique_value_full_support(self):
+        doc = document_from_text("r", ["Invoice ID: INV-2024-0042 total 5"])
+        (out,) = ground_predictions([FieldPrediction(path="id", value="INV-2024-0042")], doc)
+        assert out.grounding is not None and out.grounding.support == pytest.approx(1.0)
+
+    def test_value_appearing_twice_half_support(self):
+        # both occurrences on one page -> 2-way ambiguity -> support 0.5
+        doc = document_from_text("r", ["total 99.50\nbalance 99.50"])
+        (out,) = ground_predictions(
+            [FieldPrediction(path="t", value="99.50")], doc, min_support=0.0
+        )
+        assert out.grounding is not None
+        assert out.grounding.support == pytest.approx(0.5)

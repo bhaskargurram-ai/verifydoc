@@ -33,20 +33,31 @@ def _normalize_for_match(text: str) -> str:
 
 
 def ground_predictions(
-    predictions: list[FieldPrediction], doc: Document, min_support: float = MIN_SUPPORT
+    predictions: list[FieldPrediction],
+    doc: Document,
+    min_support: float = MIN_SUPPORT,
+    penalize_ambiguity: bool = True,
 ) -> list[FieldPrediction]:
-    """Return copies with grounding attached where the value can be located."""
+    """Return copies with grounding attached where the value can be located.
+
+    ``penalize_ambiguity`` (default True) discounts support for values that
+    match at multiple places — the right behavior for grounding-as-confidence.
+    Set False for pure annotation (locate a known-correct value regardless of
+    how many times it appears).
+    """
     out = []
     for pred in predictions:
         if pred.grounding is not None or pred.value is None:
             out.append(pred)
             continue
-        grounding = _locate(str(pred.value), doc, min_support)
+        grounding = _locate(str(pred.value), doc, min_support, penalize_ambiguity)
         out.append(pred if grounding is None else pred.model_copy(update={"grounding": grounding}))
     return out
 
 
-def _locate(value: str, doc: Document, min_support: float) -> Grounding | None:
+def _locate(
+    value: str, doc: Document, min_support: float, penalize_ambiguity: bool = True
+) -> Grounding | None:
     target = _normalize_for_match(value)
     if not target:
         return None
@@ -54,8 +65,16 @@ def _locate(value: str, doc: Document, min_support: float) -> Grounding | None:
     best_support = min_support
     for page in doc.pages:
         found = _best_window(target, page)
-        if found is not None and found[1] >= best_support:
-            bbox, support = found
+        if found is None:
+            continue
+        bbox, score, n_matches = found
+        # Ambiguity penalty: a value that matches equally well at n distinct
+        # places (short/common tokens like a bare "2") is not reliably located,
+        # so its provenance is uncertain. Discounting support by 1/n turns a
+        # coincidental match into low confidence -> review, instead of a
+        # falsely-confident grounding. (Grounding-sweep P2; the CORD failure mode.)
+        support = score / n_matches if penalize_ambiguity else score
+        if support >= best_support:
             best = Grounding(
                 page=page.page,
                 bbox=bbox,
@@ -75,14 +94,18 @@ def _window_bbox(window: list) -> tuple[float, float, float, float]:
     )
 
 
-def _best_window(target: str, page: Page) -> tuple[tuple[float, float, float, float], float] | None:
-    """Best contiguous word window by string similarity to the target.
+def _best_window(
+    target: str, page: Page
+) -> tuple[tuple[float, float, float, float], float, int] | None:
+    """Best contiguous word window by string similarity, plus a match count.
+
+    Returns ``(bbox, score, n_matches)`` where ``n_matches`` is how many
+    distinct page locations match at (near-)best score — the ambiguity of the
+    location, which ``_locate`` uses to discount support.
 
     Fast path: correctly extracted values match some window verbatim, so an
-    exact normalized comparison runs first and returns support 1.0 without
-    any edit-distance work. The fuzzy scan only runs for values that do not
-    appear verbatim (the interesting, possibly-hallucinated ones), and prunes
-    windows whose length alone caps similarity below the current best.
+    exact normalized comparison runs first. The fuzzy scan only runs for values
+    with no verbatim match, and prunes windows whose length caps similarity.
     """
     words = page.words
     if not words:
@@ -91,13 +114,20 @@ def _best_window(target: str, page: Page) -> tuple[tuple[float, float, float, fl
     max_width = n_target_tokens + 1
     normalized = [_normalize_for_match(w.text) for w in words]
 
+    exact_bbox: tuple[float, float, float, float] | None = None
+    exact_count = 0
     for start in range(len(words)):
         joined = normalized[start]
         for width in range(1, min(max_width, len(words) - start) + 1):
             if width > 1:
                 joined = f"{joined} {normalized[start + width - 1]}"
             if joined == target:
-                return _window_bbox(words[start : start + width]), 1.0
+                if exact_bbox is None:
+                    exact_bbox = _window_bbox(words[start : start + width])
+                exact_count += 1
+                break  # count each start position once
+    if exact_bbox is not None:
+        return exact_bbox, 1.0, exact_count
 
     # fuzzy scan only over candidate starts: windows anchored at a word that
     # exactly matches one of the target's tokens (a partially-corrupted value
@@ -118,8 +148,10 @@ def _best_window(target: str, page: Page) -> tuple[tuple[float, float, float, fl
         }
         starts = sorted(anchor_starts)
 
+    eps = 1e-9
     best_score = 0.0
     best_bbox: tuple[float, float, float, float] | None = None
+    n_near = 0
     for start in starts:
         joined = normalized[start]
         for width in range(1, min(max_width, len(words) - start) + 1):
@@ -127,15 +159,18 @@ def _best_window(target: str, page: Page) -> tuple[tuple[float, float, float, fl
                 joined = f"{joined} {normalized[start + width - 1]}"
             # similarity <= 1 - |len difference| / max(len): prune hopeless windows
             len_cap = 1.0 - abs(len(joined) - len(target)) / max(len(joined), len(target), 1)
-            if len_cap <= best_score:
+            if len_cap < best_score - eps:
                 continue
             score = normalized_levenshtein_similarity(joined, target)
-            if score > best_score:
+            if score > best_score + eps:
                 best_score = score
                 best_bbox = _window_bbox(words[start : start + width])
+                n_near = 1
+            elif score > 0 and abs(score - best_score) <= eps:
+                n_near += 1
     if best_bbox is None:
         return None
-    return best_bbox, best_score
+    return best_bbox, best_score, max(1, n_near)
 
 
 _LONG_TARGET_TOKENS = 12
@@ -143,7 +178,7 @@ _LONG_TARGET_TOKENS = 12
 
 def _best_window_by_tokens(
     target_tokens: list[str], words: list, normalized: list[str]
-) -> tuple[tuple[float, float, float, float], float] | None:
+) -> tuple[tuple[float, float, float, float], float, int] | None:
     """Paragraph-length values: score fixed-width windows by token overlap.
 
     # DECISION: char-level edit distance is O(len^2) and blows up on
@@ -177,7 +212,7 @@ def _best_window_by_tokens(
             best_bbox = _window_bbox(words[start : start + len(window)])
     if best_bbox is None:
         return None
-    return best_bbox, best_score
+    return best_bbox, best_score, 1  # paragraph-length values are effectively unique
 
 
 def _char_span(target: str, page: Page) -> tuple[int, int] | None:

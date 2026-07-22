@@ -146,6 +146,19 @@ class Schema(BaseModel):
         _walk_json_schema(raw, "", leaves, required=True)
         return cls(name=name, leaves=leaves, raw=raw)
 
+    @classmethod
+    def from_pydantic(cls, model: type[BaseModel], name: str | None = None) -> Schema:
+        """Build a scored-leaf schema from a Pydantic model.
+
+        Lets engineers extract into their own typed models: field types map to
+        scoring rules (str→semantic, int/float→numeric, bool→exact); nested
+        models and ``list[...]`` become nested/array paths. Optional fields are
+        unwrapped and marked not-required.
+        """
+        leaves: list[SchemaLeaf] = []
+        _walk_pydantic(model, "", leaves, required=True)
+        return cls(name=name or model.__name__, leaves=leaves)
+
     def to_json_schema(self) -> dict[str, Any]:
         """Reconstruct a JSON Schema dict from the leaves.
 
@@ -162,6 +175,56 @@ class Schema(BaseModel):
     def json_schema(self) -> dict[str, Any]:
         """The source JSON Schema if present, else one reconstructed from leaves."""
         return self.raw if self.raw else self.to_json_schema()
+
+
+JsonType = Literal["string", "number", "integer", "boolean"]
+
+
+def _py_type_info(annotation: Any) -> tuple[JsonType, ScoringRule, bool]:
+    """Map a Python annotation to (json_type, scoring, is_required)."""
+    import typing
+
+    required = True
+    origin = typing.get_origin(annotation)
+    if origin is typing.Union or (origin is not None and str(origin) == "types.UnionType"):
+        args = [a for a in typing.get_args(annotation) if a is not type(None)]
+        if len(typing.get_args(annotation)) != len(args):
+            required = False
+        annotation = args[0] if args else str
+    if annotation is int:
+        return "integer", "numeric", required
+    if annotation is float:
+        return "number", "numeric", required
+    if annotation is bool:
+        return "boolean", "exact", required
+    return "string", "semantic", required
+
+
+def _walk_pydantic(
+    model: type[BaseModel], prefix: str, out: list[SchemaLeaf], required: bool
+) -> None:
+    import typing
+
+    for fname, finfo in model.model_fields.items():
+        path = f"{prefix}.{fname}" if prefix else fname
+        ann = finfo.annotation
+        field_required = required and finfo.is_required()
+        origin = typing.get_origin(ann)
+
+        if isinstance(ann, type) and issubclass(ann, BaseModel):
+            _walk_pydantic(ann, path, out, field_required)
+        elif origin in (list, tuple) or (origin is not None and str(origin) in ("list", "tuple")):
+            (item,) = typing.get_args(ann) or (str,)
+            if isinstance(item, type) and issubclass(item, BaseModel):
+                _walk_pydantic(item, f"{path}[]", out, field_required)
+            else:
+                jt, sc, _ = _py_type_info(item)
+                out.append(
+                    SchemaLeaf(path=f"{path}[]", type=jt, scoring=sc, required=field_required)
+                )
+        else:
+            jt, sc, opt = _py_type_info(ann)
+            out.append(SchemaLeaf(path=path, type=jt, scoring=sc, required=field_required and opt))
 
 
 def _leaf_to_schema(leaf: SchemaLeaf) -> dict[str, Any]:
