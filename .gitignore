@@ -45,3 +45,7 @@ paper/*.out
 paper/*.bbl
 paper/*.blg
 paper/main.pdf
+
+# local secrets (never commit)
+.env.secret
+.env.local
