@@ -71,7 +71,7 @@ class GroupConformalAbstention:
         groups = np.array([self.group_of(p) for p in preds])
 
         # pooled fallback threshold (for empty/degenerate groups)
-        pooled = ConformalAbstention(alpha=self.alpha).fit(conf, corr)
+        pooled = ConformalAbstention(alpha=self.alpha).fit(conf.tolist(), corr.tolist())
         self.pooled_threshold_ = pooled.threshold_
 
         self.thresholds_ = {}
@@ -80,7 +80,9 @@ class GroupConformalAbstention:
             mask = groups == g
             if mask.sum() == 0:
                 continue
-            policy = ConformalAbstention(alpha=self.alpha).fit(conf[mask], corr[mask])
+            policy = ConformalAbstention(alpha=self.alpha).fit(
+                conf[mask].tolist(), corr[mask].tolist()
+            )
             self.thresholds_[str(g)] = policy.threshold_
             self.abstention_[str(g)] = policy.abstention_rate_
         self._fitted = True
