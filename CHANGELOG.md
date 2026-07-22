@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.4.0 — 2026-07-21
+
+Paper-ready: fair API-VLM comparison + a compilable paper.
+
+- **Vendor-neutral API-VLM extractor** (`verifydoc/adapters/api_vlm.py`):
+  OpenAI + Anthropic clients behind one `CompletionClient` protocol, with
+  **temperature-based k-sample sampling** so self-consistency consensus and
+  verbalized confidence are non-degenerate (the fair comparison the paper
+  needs). Harness `adapter_kwargs` passthrough; `configs/cord-apivlm.yaml`;
+  `ocr` and `api` install extras.
+- **Compilable paper** (`paper/main.tex`) with real RapidOCR/PaddleOCR/
+  synthetic numbers, auto-generated LaTeX result tables
+  (`scripts/tables_to_latex.py`, booktabs) and `refs.bib`; `make paper`.
+- **Docs**: `docs/how-it-works.md`; README documentation index; runnable
+  `examples/`.
+- Repo hygiene: removed internal build-tooling notes; tidied PROJECT.md.
+
 ## v0.3.0 — 2026-07-21
 
 First **real-model** results (issue #3).

@@ -68,7 +68,7 @@ Schemas are plain JSON Schema, with each leaf optionally declaring **how it is s
 
 | Layer | Modules | Status |
 |---|---|---|
-| **Adapters** (all model code isolated here) | mock · text-search · PaddleOCR-VL · dots.ocr · Docling/MinerU output · API-VLM | ✅ |
+| **Adapters** (all model code isolated here) | mock · text-search · RapidOCR · PaddleOCR · dots.ocr · Docling/MinerU output · API-VLM (OpenAI/Anthropic) | ✅ |
 | **Confidence signals** | token-prob · verbalized · consensus (k-sample voting) · grounding-based · combined | ✅ |
 | **Calibrators** (fit on a dedicated split, never test) | temperature · Platt · isotonic · histogram · **split conformal** with finite-sample risk guarantee | ✅ |
 | **Grounding** | value → page/bbox/char-span attachment with support scores | ✅ |
@@ -129,9 +129,17 @@ buys you.
 - [x] v0.1 — library + CLI + harness + synthetic benchmark slice + UI
 - [x] v0.2 — CORD + FUNSD real slices with gold boxes; learned combiner; 1000× faster grounder
 - [x] v0.3 — real-model results (RapidOCR + PaddleOCR on CORD/FUNSD)
-- [ ] dots.ocr via vllm; API-VLM row (verbalized + k-sample consensus on a real VLM)
-- [ ] SROIE / DocILE / XFUND slices; human-labeled correctness + IAA
-- [ ] Paper: first systematic study of confidence × calibration × abstention for document extraction ([contributions welcome](CONTRIBUTING.md))
+- [x] v0.4 — vendor-neutral API-VLM extractor (OpenAI/Anthropic) with k-sample consensus; compilable paper with auto-generated tables
+- [ ] Run the API-VLM row at scale (fair verbalized + consensus comparison; needs an API key)
+- [ ] dots.ocr via vllm; SROIE / DocILE / XFUND slices; human-labeled correctness + IAA
+- [ ] Paper submission ([contributions welcome](CONTRIBUTING.md))
+
+## Documentation
+
+- [How it works](docs/how-it-works.md) — the pipeline, the abstention idea, why grounding is a trust signal
+- [Real-model results](paper/generated/REAL_MODELS_RESULTS.md) — RapidOCR + PaddleOCR numbers and reading
+- [GPU runbook](docs/REAL_MODELS.md) — reproduce the real-extractor rows
+- [USP audit](docs/USP.md) · [Paper draft](paper/main.tex) · [Full spec](PROJECT.md)
 
 ## Development
 
@@ -139,6 +147,8 @@ buys you.
 git clone https://github.com/bhaskargurram-ai/verifydoc && cd verifydoc
 uv venv .venv && uv pip install -e ".[dev]"
 make test lint typecheck     # all green before any PR (CI enforces)
+make results                 # regenerate benchmark tables + LaTeX
+make paper                   # compile the paper (needs a LaTeX toolchain)
 ```
 
 Contributions welcome — see the issues tagged `good-first-issue`. All model-specific code goes in `verifydoc/adapters/`; a new extractor is one file.
