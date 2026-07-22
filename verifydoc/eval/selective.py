@@ -45,6 +45,21 @@ def aurc(conf: Sequence[float], correct: Sequence[int]) -> float:
     return float(risk.mean())
 
 
+def augrc(conf: Sequence[float], correct: Sequence[int]) -> float:
+    """Area Under the Generalized Risk-Coverage curve (Traub et al., NeurIPS 2024).
+
+    Generalized risk at coverage k = (# accepted-and-wrong)/N — the rate of
+    *undetected failures* relative to the whole set, not just the accepted
+    subset. AUGRC averages it over all coverage levels; lower is better. It
+    fixes interpretability issues of AURC (which divides by accepted count and
+    can reward tiny high-risk accepted sets). Directly the "wrong field the
+    system accepted" quantity VerifyDoc cares about.
+    """
+    _, y = _sorted_desc(conf, correct)
+    gen_risk = np.cumsum(1.0 - y) / y.size
+    return float(gen_risk.mean())
+
+
 def oracle_aurc(correct: Sequence[int]) -> float:
     """AURC of the oracle ranking (all correct fields before all errors)."""
     y = np.asarray(correct, dtype=float)

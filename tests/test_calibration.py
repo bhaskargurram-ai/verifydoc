@@ -1,5 +1,6 @@
 """Numeric regression tests for eval/calibration.py against hand-computed values."""
 
+import numpy as np
 import pytest
 
 from verifydoc.eval.calibration import (
@@ -109,3 +110,25 @@ class TestReliabilityBins:
     def test_zero_confidence_in_first_bin(self):
         bins = reliability_bins([0.0, 1.0], [0, 1], n_bins=2)
         assert bins[0].lo == 0.0 and bins[0].count == 1
+
+
+class TestSmoothECE:
+    def test_perfectly_calibrated_near_zero(self):
+        from verifydoc.eval.calibration import smooth_ece
+
+        rng = np.random.default_rng(0)
+        conf = rng.random(500)
+        correct = (rng.random(500) < conf).astype(int)
+        assert smooth_ece(conf, correct) < 0.1
+
+    def test_overconfident_positive(self):
+        from verifydoc.eval.calibration import smooth_ece
+
+        # says 0.9, right 60% -> smoothed residual ~ -0.3
+        assert smooth_ece([0.9] * 200, ([1] * 120 + [0] * 80)) > 0.2
+
+    def test_validation(self):
+        from verifydoc.eval.calibration import smooth_ece
+
+        with pytest.raises(ValueError):
+            smooth_ece([1.5], [1])

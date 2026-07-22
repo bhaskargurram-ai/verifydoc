@@ -103,3 +103,19 @@ class TestErrorDetection:
         assert math.isnan(auroc([0.9, 0.8], [1, 1]))
         assert math.isnan(aupr([0.9, 0.8], [0, 0]))
         assert math.isnan(fpr_at_tpr([0.9], [1]))
+
+
+class TestAUGRC:
+    def test_hand_computed(self):
+        from verifydoc.eval.selective import augrc
+
+        # conf=[.9,.8,.7,.6], correct=[1,1,0,1]: cum_err=[0,0,1,1], /4 -> [0,0,.25,.25]
+        assert augrc(CONF, CORR) == pytest.approx((0 + 0 + 0.25 + 0.25) / 4)
+
+    def test_perfect_ranking_low(self):
+        from verifydoc.eval.selective import augrc
+
+        # all errors last -> undetected failures accumulate only at the end
+        good = augrc([0.9, 0.8, 0.7, 0.1], [1, 1, 1, 0])
+        bad = augrc([0.9, 0.8, 0.7, 0.1], [0, 1, 1, 1])
+        assert good < bad

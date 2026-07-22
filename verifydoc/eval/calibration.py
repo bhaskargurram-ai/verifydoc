@@ -79,6 +79,29 @@ def ece(conf: Sequence[float], correct: Sequence[int], n_bins: int = 15) -> floa
     )
 
 
+def smooth_ece(
+    conf: Sequence[float], correct: Sequence[int], bandwidth: float | None = None
+) -> float:
+    """Kernel-smoothed calibration error (SmoothECE-style; Błasiok & Nakkiran, ICLR 2024).
+
+    Binned ECE is discontinuous and sensitive to bin count; a Gaussian-kernel
+    regression of (correct - conf) against conf gives a continuous, bin-free
+    estimate: SmoothECE = sum_i w_i |rhat(c_i)| / sum_i w_i over sample points,
+    where rhat is the kernel-weighted mean residual. Bandwidth defaults to a
+    Silverman-style ``0.15 * n**(-1/5)`` heuristic (their consistent estimator
+    selects it automatically; this is a fixed-heuristic variant).
+    """
+    c, y = _validate(conf, correct)
+    n = c.size
+    h = bandwidth if bandwidth is not None else max(1e-3, 0.15 * n ** (-0.2))
+    resid = y - c
+    # weight matrix would be O(n^2); cap for large n by evaluating at the points
+    diffs = (c[:, None] - c[None, :]) / h
+    w = np.exp(-0.5 * diffs**2)
+    rhat = (w * resid[None, :]).sum(axis=1) / w.sum(axis=1)
+    return float(np.mean(np.abs(rhat)))
+
+
 def adaptive_ece(conf: Sequence[float], correct: Sequence[int], n_bins: int = 15) -> float:
     """Adaptive ECE: equal-mass bins (robust when confidences cluster)."""
     c, y = _validate(conf, correct)

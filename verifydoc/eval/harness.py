@@ -34,7 +34,7 @@ from verifydoc.confidence import (
     token_prob_confidence,
     verbalized_confidence,
 )
-from verifydoc.eval.calibration import adaptive_ece, brier, ece, nll, reliability_bins
+from verifydoc.eval.calibration import adaptive_ece, brier, ece, nll, reliability_bins, smooth_ece
 from verifydoc.eval.extraction import score_fields
 from verifydoc.eval.grounding import (
     box_grounding_accuracy,
@@ -42,7 +42,7 @@ from verifydoc.eval.grounding import (
     mean_iou,
     pairwise_ious,
 )
-from verifydoc.eval.selective import auroc, coverage_at_risk, e_aurc, rc_curve
+from verifydoc.eval.selective import augrc, auroc, coverage_at_risk, e_aurc, rc_curve
 from verifydoc.eval.stats import bootstrap_ci
 from verifydoc.grounding import ground_predictions
 from verifydoc.types import FieldPrediction
@@ -232,6 +232,7 @@ def run_benchmark(cfg: dict[str, Any], out_dir: str | Path) -> dict[str, Any]:
                     "calibrator": variant,
                     "ece": ece(conf, test_corr),
                     "adaptive_ece": adaptive_ece(conf, test_corr),
+                    "smooth_ece": smooth_ece(conf, test_corr),
                     "brier": brier(conf, test_corr),
                     "nll": nll(conf, test_corr),
                 }
@@ -239,6 +240,7 @@ def run_benchmark(cfg: dict[str, Any], out_dir: str | Path) -> dict[str, Any]:
         row: dict[str, Any] = {
             "signal": name,
             "e_aurc": e_aurc(test_conf, test_corr),
+            "augrc": augrc(test_conf, test_corr),
             "auroc": auroc(test_conf, test_corr),
         }
         for alpha in alphas:
