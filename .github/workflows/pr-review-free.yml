@@ -1,0 +1,84 @@
+name: PR review (free / GitHub Models)
+
+# Free AI PR review using GitHub Models — no API key, no cost. Uses the
+# built-in GITHUB_TOKEN and the `models: read` permission (free, rate-limited
+# for public repos). This is the default reviewer; the optional
+# claude-review.yml is a higher-quality upgrade if an ANTHROPIC_API_KEY is set.
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  models: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Collect diff
+        run: |
+          git diff --unified=1 "origin/${{ github.base_ref }}...HEAD" \
+            -- 'verifydoc/**' 'tests/**' 'benchmark/**' 'scripts/**' > /tmp/diff.txt || true
+          head -c 24000 /tmp/diff.txt > /tmp/diff_trunc.txt
+          echo "diff bytes: $(wc -c < /tmp/diff_trunc.txt)"
+      - name: Review with GitHub Models
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess, urllib.request
+
+          diff = open("/tmp/diff_trunc.txt", encoding="utf-8", errors="replace").read()
+          if len(diff.strip()) < 5:
+              print("no reviewable diff; skipping")
+              raise SystemExit(0)
+
+          system = (
+              "You are a concise code reviewer for VerifyDoc, a document-extraction "
+              "trust layer. Review the diff for correctness bugs, missing tests, and "
+              "violations of its rules (adapters isolate model code; stages decoupled; "
+              "never tune calibration on the test split; no network in unit tests; every "
+              "metric matches its cited definition). List at most 6 concrete findings as "
+              "bullets, most severe first; if it looks good, say so briefly."
+          )
+          body = {
+              "model": "openai/gpt-4o-mini",
+              "messages": [
+                  {"role": "system", "content": system},
+                  {"role": "user", "content": "Review this diff:\n\n" + diff},
+              ],
+              "temperature": 0.2,
+          }
+          req = urllib.request.Request(
+              "https://models.github.ai/inference/chat/completions",
+              data=json.dumps(body).encode(),
+              headers={
+                  "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                  "Content-Type": "application/json",
+                  "Accept": "application/json",
+              },
+          )
+          try:
+              with urllib.request.urlopen(req, timeout=90) as r:
+                  review = json.load(r)["choices"][0]["message"]["content"]
+          except Exception as exc:  # rate limit / transient — don't fail the PR
+              print("GitHub Models unavailable:", str(exc)[:200])
+              raise SystemExit(0)
+
+          comment = (
+              "### 🤖 Automated review (GitHub Models, free)\n\n"
+              + review
+              + "\n\n_Heuristic review — not a merge gate. CI (ruff/black/mypy/pytest) is the gate._"
+          )
+          subprocess.run(
+              ["gh", "pr", "comment", os.environ["PR"], "--body", comment], check=False
+          )
+          print("posted review comment")
+          PY
