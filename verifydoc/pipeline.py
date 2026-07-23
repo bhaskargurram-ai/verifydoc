@@ -13,6 +13,7 @@ Stages stay independent (golden rule #2); this module only sequences them.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -146,3 +147,17 @@ def verify(
 
     scored = apply_policy(scored, threshold)
     return VerifiedResult(doc_id=doc.doc_id, fields=scored, threshold=threshold)
+
+
+def verify_batch(
+    sources: Sequence[Document | str | Path],
+    schema: Schema | dict[str, Any] | str | Path,
+    **kwargs: Any,
+) -> list[VerifiedResult]:
+    """Verify many documents against one schema — a ``VerifiedResult`` per source.
+
+    Sequential and deterministic (order preserved); ``kwargs`` are forwarded to
+    :func:`verify` (adapter, k, calibrator, threshold). For concurrency, wrap in
+    your own executor — the pipeline holds no shared mutable state.
+    """
+    return [verify(src, schema, **kwargs) for src in sources]
