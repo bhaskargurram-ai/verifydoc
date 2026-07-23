@@ -3,7 +3,12 @@
 import numpy as np
 import pytest
 
-from verifydoc.eval.stats import bootstrap_ci, paired_bootstrap_test, paired_permutation_test
+from verifydoc.eval.stats import (
+    bootstrap_ci,
+    holm_bonferroni,
+    paired_bootstrap_test,
+    paired_permutation_test,
+)
 
 
 class TestBootstrapCI:
@@ -62,6 +67,28 @@ class TestPairedTests:
             paired_permutation_test([1], [1, 0])
         with pytest.raises(ValueError):
             paired_bootstrap_test([], [])
+
+
+class TestHolmBonferroni:
+    def test_empty(self):
+        assert holm_bonferroni([]) == []
+
+    def test_all_reject_when_tiny(self):
+        # three highly significant p-values -> all rejected at 0.05
+        assert holm_bonferroni([0.001, 0.002, 0.003], alpha=0.05) == [True, True, True]
+
+    def test_step_down_stops(self):
+        # m=3: sorted [0.01, 0.04, 0.5]; thresholds 0.05/3, 0.05/2, 0.05/1
+        # 0.01<=0.0167 reject; 0.04>0.025 stop -> only smallest rejected
+        assert holm_bonferroni([0.01, 0.04, 0.5], alpha=0.05) == [True, False, False]
+
+    def test_order_preserved(self):
+        # reject flags align to INPUT order, not sorted order
+        assert holm_bonferroni([0.5, 0.001], alpha=0.05) == [False, True]
+
+    def test_more_conservative_than_uncorrected(self):
+        # a p just under alpha alone is not rejected once it's one of many
+        assert holm_bonferroni([0.04, 0.04, 0.04], alpha=0.05) == [False, False, False]
 
 
 class TestInterAnnotatorAgreement:
