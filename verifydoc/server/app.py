@@ -39,8 +39,20 @@ class VerifyRequest(BaseModel):
     threshold: float = 0.8
 
 
+# Adapters that keep documents on-box and need no API key — safe for a public demo.
+_DEMO_ADAPTERS = {"", "text-search", "rapidocr"}
+
+
 def _resolve_adapter(name: str) -> ExtractorAdapter | None:
-    """None -> pipeline default (text-search); otherwise the named adapter."""
+    """None -> pipeline default (text-search); otherwise the named adapter.
+
+    In demo mode (``VERIFYDOC_DEMO`` set) only local, keyless adapters are allowed,
+    so a public instance can't be driven to a paid API or leak documents off-box.
+    """
+    if os.environ.get("VERIFYDOC_DEMO") and name not in _DEMO_ADAPTERS:
+        raise HTTPException(
+            status_code=400, detail=f"demo mode: only {sorted(_DEMO_ADAPTERS - {''})} allowed"
+        )
     if name in ("", "text-search"):
         return None
     try:
@@ -119,7 +131,8 @@ def main() -> None:  # pragma: no cover - entrypoint
     import uvicorn
 
     host = os.environ.get("VERIFYDOC_HOST", "0.0.0.0")  # noqa: S104 - containerized server
-    port = int(os.environ.get("VERIFYDOC_PORT", "8000"))
+    # honor Cloud Run / PaaS $PORT, else VERIFYDOC_PORT, else 8000
+    port = int(os.environ.get("PORT") or os.environ.get("VERIFYDOC_PORT") or "8000")
     uvicorn.run(build_app(), host=host, port=port)
 
 

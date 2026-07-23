@@ -172,3 +172,19 @@ class TestReplyForMessage:
 
     def test_no_content_prompts_user(self):
         assert "Send me" in reply_for_message({"sticker": {}})
+
+
+class TestDemoMode:
+    def test_demo_blocks_api_adapter(self, client, monkeypatch):
+        monkeypatch.setenv("VERIFYDOC_DEMO", "1")
+        r = client.post(
+            "/verify", json={"document": RECEIPT, "schema": SCHEMA, "adapter": "api-vlm"}
+        )
+        assert r.status_code == 400 and "demo" in r.json()["detail"].lower()
+
+    def test_demo_allows_local_default(self, client, monkeypatch):
+        monkeypatch.setenv("VERIFYDOC_DEMO", "1")
+        r = client.post(
+            "/verify", json={"document": RECEIPT, "schema": SCHEMA, "adapter": "text-search"}
+        )
+        assert r.status_code == 200 and "fields" in r.json()
