@@ -20,11 +20,13 @@ from verifydoc.adapters.mock import MockAdapter
 from verifydoc.calibration import (
     Calibrator,
     ConformalAbstention,
+    GroupConformalAbstention,
     HistogramBinning,
     IsotonicCalibrator,
     PlattScaling,
     TemperatureScaling,
     assert_disjoint,
+    grounded_group,
     split_calibration,
 )
 from verifydoc.confidence import (
@@ -78,6 +80,12 @@ def collect(bench: Sequence[Any], adapter: Any, k: int) -> dict[str, Any]:
     learned_ids: list[str] = []
     learned_sigs: list[dict[str, float | None]] = []
     learned_correct: list[int] = []
+    # per-field records for grounding-conditioned (Mondrian) conformal: the
+    # combined-signal prediction keeps its grounding, so the group taxonomy
+    # (grounded vs ungrounded) and the confidence bar share one object.
+    grouped_ids: list[str] = []
+    grouped_preds: list[FieldPrediction] = []
+    grouped_correct: list[int] = []
 
     for item in bench:
         samples = adapter.extract_samples(item.doc, item.schema, k)
@@ -112,6 +120,7 @@ def collect(bench: Sequence[Any], adapter: Any, k: int) -> dict[str, Any]:
         for name, preds in variants.items():
             report = score_fields(preds, item.golds)
             data = signals[name]
+            combined_by_path = {p.path: p for p in preds} if name == "combined" else {}
             for fs in report.field_scores:
                 data.doc_ids.append(item.doc.doc_id)
                 data.conf.append(fs.confidence)
@@ -120,6 +129,11 @@ def collect(bench: Sequence[Any], adapter: Any, k: int) -> dict[str, Any]:
                     learned_ids.append(item.doc.doc_id)
                     learned_sigs.append(sig_by_path[fs.path])
                     learned_correct.append(int(fs.correct))
+                    pred = combined_by_path.get(fs.path)
+                    if pred is not None:
+                        grouped_ids.append(item.doc.doc_id)
+                        grouped_preds.append(pred)
+                        grouped_correct.append(int(fs.correct))
 
         base_report = score_fields(base, item.golds)
         extraction_reports.append(base_report)
@@ -137,6 +151,7 @@ def collect(bench: Sequence[Any], adapter: Any, k: int) -> dict[str, Any]:
         "extraction_reports": extraction_reports,
         "boxes": (pred_boxes, gold_boxes, box_correct),
         "learned": (learned_ids, learned_sigs, learned_correct),
+        "grouped": (grouped_ids, grouped_preds, grouped_correct),
     }
 
 
@@ -305,7 +320,10 @@ def run_benchmark(cfg: dict[str, Any], out_dir: str | Path) -> dict[str, Any]:
     # sanity: every field either has a gold box or was hallucinated
     assert len(pairwise_ious(pred_boxes, gold_boxes)) == len(box_corr)
 
-    _write_tables(out, extraction_row, calib_rows, select_rows, conformal_rows, grounding_row)
+    grouped_rows = grouped_conformal_rows(pooled["grouped"], cal_set, test_set, alphas)
+    _write_tables(
+        out, extraction_row, calib_rows, select_rows, conformal_rows, grounding_row, grouped_rows
+    )
     _write_figures(out, figures, signals, cal_set, test_set)
 
     summary.update(
@@ -319,7 +337,77 @@ def run_benchmark(cfg: dict[str, Any], out_dir: str | Path) -> dict[str, Any]:
             "tables": sorted(p.name for p in out.glob("*.md")),
         }
     )
+    grouped_gains = [r for r in grouped_rows if r["method"] == "grounded-group"]
+    if grouped_gains:
+        summary["grouped_conformal"] = max(grouped_gains, key=lambda r: float(r["coverage_gain"]))
     return summary
+
+
+def grouped_conformal_rows(
+    grouped: tuple[list[str], list[FieldPrediction], list[int]],
+    cal_set: set[str],
+    test_set: set[str],
+    alphas: Sequence[float],
+) -> list[dict[str, Any]]:
+    """Pooled (marginal) vs grounding-conditioned conformal, at each risk target.
+
+    The paper's headline selective-prediction result: partitioning fields by
+    provenance (grounded vs ungrounded) and fitting a *per-group* conformal
+    threshold accepts more fields at the SAME guaranteed risk than one pooled
+    threshold. Both policies are fit on the calibration split only and share
+    the combined-signal confidence, so the comparison is apples-to-apples and
+    isolates the effect of conditioning. Returns two rows per alpha (marginal,
+    grounded-group) with the coverage gain and per-group detail.
+    """
+    g_ids, g_preds, g_corr = grouped
+    cal_preds = [p for d, p in zip(g_ids, g_preds) if d in cal_set]
+    cal_y = [y for d, y in zip(g_ids, g_corr) if d in cal_set]
+    test_preds = [p for d, p in zip(g_ids, g_preds) if d in test_set]
+    test_y = np.asarray([y for d, y in zip(g_ids, g_corr) if d in test_set], dtype=float)
+    rows: list[dict[str, Any]] = []
+    if not cal_preds or test_y.size == 0:
+        return rows
+    cal_conf = [p.confidence for p in cal_preds]
+    test_conf = [p.confidence for p in test_preds]
+    groups = np.array([grounded_group(p) for p in test_preds])
+    for alpha in alphas:
+        marginal = ConformalAbstention(alpha=alpha).fit(cal_conf, cal_y)
+        m_mask = marginal.accept(test_conf)
+        m_cov = float(m_mask.mean())
+        m_risk = float(1.0 - test_y[m_mask].mean()) if m_mask.any() else 0.0
+
+        policy = GroupConformalAbstention(alpha=alpha).fit(cal_preds, cal_y)
+        g_mask = policy.accept(test_preds)
+        g_cov = float(g_mask.mean())
+        g_risk = float(1.0 - test_y[g_mask].mean()) if g_mask.any() else 0.0
+        detail = "; ".join(
+            f"{g}: {float(g_mask[groups == g].mean()) if (groups == g).any() else 0.0:.0%} acc "
+            f"@thr={policy.threshold_for(str(g)):.3f}"
+            for g in sorted(set(groups.tolist()))
+        )
+        rows.append(
+            {
+                "method": "marginal",
+                "alpha": alpha,
+                "test_coverage": m_cov,
+                "achieved_risk": m_risk,
+                "guarantee_held": m_risk <= alpha + 1e-9,
+                "coverage_gain": 0.0,
+                "detail": f"pooled thr={marginal.threshold_:.3f}",
+            }
+        )
+        rows.append(
+            {
+                "method": "grounded-group",
+                "alpha": alpha,
+                "test_coverage": g_cov,
+                "achieved_risk": g_risk,
+                "guarantee_held": g_risk <= alpha + 1e-9,
+                "coverage_gain": g_cov - m_cov,
+                "detail": detail,
+            }
+        )
+    return rows
 
 
 def _fmt(value: Any) -> str:
@@ -340,6 +428,7 @@ def _write_tables(
     select: list[dict[str, Any]],
     conformal: list[dict[str, Any]],
     grounding: dict[str, Any],
+    grouped: list[dict[str, Any]],
 ) -> None:
     (out / "extraction.md").write_text(
         "# Extraction quality (single-run baseline)\n\n" + _table([extraction]),
@@ -361,6 +450,15 @@ def _write_tables(
         "# Grounding quality (consensus predictions)\n\n" + _table([grounding]),
         encoding="utf-8",
     )
+    if grouped:
+        (out / "grouped_conformal.md").write_text(
+            "# Grounding-conditioned vs marginal conformal (combined signal, test split)\n\n"
+            "Per-group conformal accepts more fields at the same guaranteed risk by "
+            "applying a lower confidence bar to grounded fields and a stricter bar to "
+            "ungrounded ones. `coverage_gain` is grounded-group coverage minus marginal.\n\n"
+            + _table(grouped),
+            encoding="utf-8",
+        )
 
 
 def _write_figures(

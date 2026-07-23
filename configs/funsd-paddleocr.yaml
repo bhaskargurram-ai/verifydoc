@@ -5,5 +5,8 @@ extractor: paddleocr-vl
 seed: 7
 k: 1   # deterministic OCR: token-prob + grounding are the live signals
 calibration_fraction: 0.5
-alphas: [0.02, 0.05]
+# grounded fields on FUNSD are ~98% correct, so tight targets are achievable for
+# the grounded group while marginal conformal (pooling in the noisy ungrounded
+# fields) must abstain far more — see grouped_conformal.md.
+alphas: [0.02, 0.05, 0.10]
 n_boot: 300

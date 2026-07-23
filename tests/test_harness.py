@@ -2,10 +2,12 @@
 
 import json
 
+import numpy as np
 import pytest
 
 from benchmark.datasets import synthetic
-from verifydoc.eval.harness import run_benchmark
+from verifydoc.eval.harness import grouped_conformal_rows, run_benchmark
+from verifydoc.types import FieldPrediction, Grounding
 
 TINY_CFG = {
     "seed": 3,
@@ -53,6 +55,7 @@ class TestHarness:
             "selective.md",
             "conformal.md",
             "grounding.md",
+            "grouped_conformal.md",
         ):
             content = (tmp_path / table).read_text(encoding="utf-8")
             assert content.startswith("#") and "|" in content
@@ -84,3 +87,42 @@ class TestHarness:
         run_benchmark(TINY_CFG, tmp_path)
         content = (tmp_path / "conformal.md").read_text(encoding="utf-8")
         assert "guarantee_held" in content
+
+
+class TestGroupedConformalRows:
+    """The novel grounding-conditioned conformal comparison the harness reports."""
+
+    @staticmethod
+    def _population(rng, n, prefix):
+        """Grounded fields are reliable (~95%); ungrounded ones are coin-flips."""
+        ids, preds, corr = [], [], []
+        for i in range(n):
+            grounded = rng.random() < 0.6
+            support = 0.9 if grounded else 0.1
+            preds.append(
+                FieldPrediction(
+                    path="f",
+                    value="v",
+                    confidence=0.5 + 0.5 * rng.random(),
+                    grounding=Grounding(page=0, support=support),
+                )
+            )
+            corr.append(int(rng.random() < (0.95 if grounded else 0.5)))
+            ids.append(f"{prefix}-{i}")
+        return ids, preds, corr
+
+    def test_conditioning_lifts_coverage_and_holds_guarantee(self):
+        rng = np.random.default_rng(0)
+        cal_ids, cal_p, cal_y = self._population(rng, 500, "cal")
+        test_ids, test_p, test_y = self._population(rng, 500, "test")
+        grouped = (cal_ids + test_ids, cal_p + test_p, cal_y + test_y)
+        rows = grouped_conformal_rows(grouped, set(cal_ids), set(test_ids), [0.10])
+        by = {r["method"]: r for r in rows}
+        assert set(by) == {"marginal", "grounded-group"}
+        # conditioning on provenance accepts strictly more at the same risk target
+        assert by["grounded-group"]["coverage_gain"] > 0.02
+        # and the accepted set still respects the target risk (finite-sample slack)
+        assert by["grounded-group"]["achieved_risk"] <= 0.10 + 0.03
+
+    def test_empty_input_returns_no_rows(self):
+        assert grouped_conformal_rows(([], [], []), set(), set(), [0.05]) == []

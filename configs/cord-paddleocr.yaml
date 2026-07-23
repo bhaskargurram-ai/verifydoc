@@ -9,7 +9,11 @@ seed: 7
 k: 1   # the OCR pipeline is deterministic: consensus over k>1 is degenerate;
        # the live signals here are token-prob (rec scores) and grounding.
 calibration_fraction: 0.5
-alphas: [0.02, 0.05]
+# risk targets span PaddleOCR-VL's achievable range on CORD: grounded-field
+# error is ~13%, so certifying 2-5% forces near-total abstention (honest, shown
+# on the strict end), while grounding-conditioned conformal recovers coverage at
+# 10-20% — see grouped_conformal.md.
+alphas: [0.05, 0.10, 0.20]
 n_boot: 300
 # record at run time for the paper table header:
 #   paddleocr==<version>, GPU model, driver version
