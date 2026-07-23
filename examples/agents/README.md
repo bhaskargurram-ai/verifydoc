@@ -24,5 +24,15 @@ value fails silently. VerifyDoc turns "the model said so" into an auditable
 accept/review decision with a source citation — the missing safety gate for
 document-reading agents.
 
+- **`auto_repair.py`** — the built-in agentic layer, `verifydoc.agents.agentic_verify`:
+  extract → verify → **repair** `review` fields through lazy escalating tiers (a
+  stronger adapter / more samples) → **escalate** the residue to a human. Tiers
+  run cheapest-first and only while review fields remain, so cost scales with
+  document difficulty (`n_extract_calls` makes it measurable).
+
+```bash
+python examples/agents/auto_repair.py
+```
+
 CrewAI and OpenAI-Agents variants of the same trust gate are welcome — the
 routing policy in `langgraph_review.py` is framework-agnostic.
