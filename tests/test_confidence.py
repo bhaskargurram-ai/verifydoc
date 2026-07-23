@@ -5,6 +5,7 @@ import math
 import pytest
 
 from verifydoc.confidence import (
+    adaptive_consensus,
     apply_token_prob,
     apply_verbalized,
     combined_confidence,
@@ -107,6 +108,59 @@ class TestConsensus:
     def test_empty_raises(self):
         with pytest.raises(ValueError):
             consensus([])
+
+
+class TestAdaptiveConsensus:
+    """#15 — draw extra samples only for ambiguous, near-threshold documents."""
+
+    @staticmethod
+    def _counting_sampler(runs):
+        """Return (sampler, calls) where sampler yields runs in order, cycling,
+        and `calls` is a mutable [count] the test can read afterwards."""
+        calls = [0]
+        seq = list(runs)
+
+        def sampler():
+            run = seq[calls[0] % len(seq)]
+            calls[0] += 1
+            return [FieldPrediction(**p) for p in run]
+
+        return sampler, calls
+
+    def test_single_pass_fast_path(self):
+        sampler, calls = self._counting_sampler([[{"path": "f", "value": "x"}]])
+        preds, n = adaptive_consensus(sampler, k_max=1)
+        assert n == 1 and calls[0] == 1
+        assert preds[0].confidence == pytest.approx(1.0)  # one sample → unanimous
+
+    def test_unanimous_stops_at_k_min(self):
+        # every draw agrees → confidence 1.0 (far from 0.5) → stop at the floor
+        sampler, calls = self._counting_sampler([[{"path": "f", "value": "x"}]])
+        _preds, n = adaptive_consensus(sampler, k_min=2, k_max=6)
+        assert n == 2 and calls[0] == 2
+
+    def test_ambiguous_field_draws_up_to_k_max(self):
+        # alternating votes keep confidence near 0.5 → keep drawing to the cap
+        runs = [[{"path": "f", "value": "a"}], [{"path": "f", "value": "b"}]]
+        sampler, calls = self._counting_sampler(runs)
+        _preds, n = adaptive_consensus(sampler, k_min=2, k_max=5)
+        assert n == 5 and calls[0] == 5
+
+    def test_budget_caps_total_draws(self):
+        runs = [[{"path": "f", "value": "a"}], [{"path": "f", "value": "b"}]]
+        sampler, calls = self._counting_sampler(runs)
+        _preds, n = adaptive_consensus(sampler, k_min=2, k_max=8, budget=3)
+        assert n == 3 and calls[0] == 3
+
+    def test_budget_below_k_min_clamps(self):
+        sampler, calls = self._counting_sampler([[{"path": "f", "value": "x"}]])
+        _preds, n = adaptive_consensus(sampler, k_min=4, k_max=6, budget=1)
+        assert n == 1 and calls[0] == 1
+
+    def test_invalid_bounds_raise(self):
+        sampler, _ = self._counting_sampler([[{"path": "f", "value": "x"}]])
+        with pytest.raises(ValueError):
+            adaptive_consensus(sampler, k_min=0)
 
 
 class TestGroundingBased:
