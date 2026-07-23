@@ -13,7 +13,12 @@ These were discovered running on RunPod; they save hours:
   Ampere (A100 sm_80, A5000/A6000 sm_86) or Ada (RTX 4090 / L4 / L40 sm_89).
 - **Pin `paddlex==3.1.0`** to match `paddleocr==3.1.0`, or the constructor
   dies with `PaddlePredictorOption.__init__() takes 1 positional argument`.
-- **Pin `langchain<0.2`** (paddlex imports the removed `langchain.docstore`).
+- **`paddlex==3.1.0` eagerly imports its RAG retriever**, which uses the removed
+  `langchain.docstore` / `langchain.text_splitter` (gone in langchain ≥0.2).
+  Pinning `langchain<0.2` no longer resolves (it conflicts with `paddlex`'s own
+  deps → `ResolutionImpossible`). Since OCR never uses that retriever, **shim the
+  two moved modules** to their new homes instead (see the `LANGCHAIN SHIM` block
+  in Setup) — a one-liner that makes `from paddleocr import PaddleOCR` succeed.
 - **RapidOCR is architecture-independent** (ONNX Runtime) — it runs anywhere,
   CPU or GPU, and is the most robust real-OCR option. Prefer it when the GPU
   is exotic.
@@ -33,8 +38,19 @@ pip install rapidocr onnxruntime          # or onnxruntime-gpu for speed
 
 # Option B — PaddleOCR (needs a paddle-supported GPU)
 pip install "paddlepaddle-gpu==3.1.0" -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
-pip install "paddleocr==3.1.0" "paddlex==3.1.0" "langchain<0.2" "langchain-community<0.2"
+pip install "paddleocr==3.1.0" "paddlex==3.1.0"   # NO langchain pin — it conflicts
+
+# LANGCHAIN SHIM — paddlex 3.1.0's retriever imports two removed langchain modules;
+# alias them to their new homes so `from paddleocr import PaddleOCR` works (OCR
+# never uses the retriever). langchain-community + langchain-text-splitters come in
+# transitively with paddlex.
+SP=$(python -c 'import langchain,os;print(os.path.dirname(langchain.__file__))')
+mkdir -p "$SP/docstore"
+echo 'from langchain_community.docstore.document import Document' | tee "$SP/docstore/__init__.py" > "$SP/docstore/document.py"
+echo 'from langchain_text_splitters import *' > "$SP/text_splitter.py"
 ```
+
+Verified on an RTX 4090 (Ada, sm_89), paddle 3.1.0, torch 2.4.1+cu124.
 
 ## Smoke test one receipt
 
@@ -57,6 +73,12 @@ python scripts/run_benchmark.py --config configs/cord-rapidocr.yaml   --out pape
 python scripts/run_benchmark.py --config configs/funsd-rapidocr.yaml  --out paper/generated/funsd-rapidocr
 python scripts/run_benchmark.py --config configs/cord-paddleocr.yaml  --out paper/generated/cord-paddleocr   # paddle GPU
 python scripts/run_benchmark.py --config configs/funsd-paddleocr.yaml --out paper/generated/funsd-paddleocr
+
+# Multi-extractor ensemble: run several extractors on the same slice and
+# adjudicate per field (agreement + best grounding) — reports each single
+# extractor vs the ensemble. Add api-vlm (needs ANTHROPIC_API_KEY) for diversity.
+python scripts/ensemble_experiment.py --dataset cord --limit 60 \
+    --extractors rapidocr,paddleocr-vl --out paper/generated/ensemble-cord.json
 ```
 
 The harness dispatches `extractor:` through the adapter registry
