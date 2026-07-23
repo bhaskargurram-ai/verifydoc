@@ -9,6 +9,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![GitHub stars](https://img.shields.io/github/stars/bhaskargurram-ai/verifydoc?style=flat)](https://github.com/bhaskargurram-ai/verifydoc/stargazers)
+[![Docs](https://img.shields.io/badge/docs-online-green.svg)](https://bhaskargurram-ai.github.io/verifydoc/)
 
 **Every other parser tells you *what* it read; VerifyDoc tells you *which values to trust*.**
 

@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+Agentic app, local private extraction, and top-repo polish.
+
+- **Local HF-model adapter** (`hf-vlm`): fully-private extraction via a local
+  transformers model — no API, nothing leaves the machine. (#41)
+- **`verify_batch`** + **observability** (`verifydoc/observability.py`): structured
+  verification events + JSON logging + optional OpenTelemetry span export. (#26)
+- **Export layer** (`verifydoc/export.py`): verified results → CSV / JSONL carrying
+  the trust columns (confidence, decision, grounded, page). (#40)
+- **Messaging bots** now extract with the configured model (Claude when a key is
+  present, else the local baseline); **`verifydoc-bot`** runs the Telegram bot by
+  long-polling with no public webhook. (#24)
+- **Grouping-taxonomy ablation + characterization** in the harness: coverage per
+  provenance taxonomy vs pooled conformal, the calibration-split-selected
+  partition, and a predictor of when grouping helps. (#25)
+- **DocILE + XFUND** (multilingual) dataset loaders. (#38, thanks @MasRama)
+- **Docs website** (MkDocs Material → GitHub Pages) + **MCP-registry `server.json`**;
+  **Docker → ghcr.io** publish workflow. (#37, #42)
+- Shipped **`py.typed`** (PEP 561); `SECURITY.md`, `.github/FUNDING.yml`; README
+  badges, comparison table, and one-command installs (uvx/pipx/docker). (#27)
+- Agentic + batch **examples**; **CLI test** coverage. (#36, #39)
+
+
 ## v0.9.0 — 2026-07-22
 
 Free maintenance + more datasets.
