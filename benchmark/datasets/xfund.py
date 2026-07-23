@@ -67,7 +67,8 @@ def load(
         img = doc.get("img", {})
         width = int(img.get("width", 1000))
         height = int(img.get("height", 1000))
-        doc_id = f"xfund-{lang}-{split}-{doc.get('id', i):04d}"
+        # XFUND doc ids are strings (e.g. "de_val_0"); index numerically for a stable id
+        doc_id = f"xfund-{lang}-{split}-{i:04d}"
         item = bench_from_annotation(doc_id, {"form": form}, width, height)
         if item is not None:
             out.append(item)
