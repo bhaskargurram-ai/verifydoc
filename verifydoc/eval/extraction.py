@@ -201,10 +201,115 @@ class ExtractionReport:
     hallucinated_paths: list[str] = field(default_factory=list)
 
 
+_ARRAY_INDEX_RE = re.compile(r"^\d+$")
+
+
+def _split_first_index(path: str) -> tuple[str, int, str] | None:
+    """Split a flat path at its first array index.
+
+    ``"items.0.name" -> ("items", 0, "name")``; ``"items.0" -> ("items", 0, "")``;
+    ``"0.name" -> ("", 0, "name")``. Returns ``None`` when the path has no
+    integer segment (i.e. it is not inside an array).
+    """
+    segs = path.split(".")
+    for i, s in enumerate(segs):
+        if _ARRAY_INDEX_RE.match(s):
+            return ".".join(segs[:i]), int(s), ".".join(segs[i + 1 :])
+    return None
+
+
+def _join_index(prefix: str, idx: int, rel: str) -> str:
+    """Inverse of :func:`_split_first_index`."""
+    parts = ([prefix] if prefix else []) + [str(idx)] + ([rel] if rel else [])
+    return ".".join(parts)
+
+
+def _greedy_align_arrays(
+    predictions: list[FieldPrediction],
+    golds: list[FieldGold],
+    semantic_tau: float,
+) -> dict[str, str]:
+    """Return a remap of each predicted path to the path it should be *scored*
+    at, after greedily aligning array items to gold by content similarity.
+
+    # DECISION (array-leaf alignment, after ExtractBench):
+    #  Flat paths encode arrays as an integer segment (``items.0.name``), so the
+    #  default path match aligns line-items *by position* — which mis-scores
+    #  whenever the extractor emits them in a different order than gold. Here we
+    #  align the *outermost* array index per group: within each array (keyed by
+    #  the prefix before its first index) we score every predicted-item ×
+    #  gold-item pair by similarity = matching-leaves / |union of relative
+    #  leaves|, where a leaf matches iff ``value_correct``. We pair greedily,
+    #  highest similarity first (ties broken by index, sim>0 required); a matched
+    #  predicted item is relabelled to its gold index, unmatched predicted items
+    #  get a fresh out-of-gold-range index (so they score as hallucinations), and
+    #  unmatched gold items stay omissions. Inner/nested indices are compared
+    #  literally — one array level is aligned per group.
+    """
+    from collections import defaultdict
+
+    pred_items: dict[str, dict[int, dict[str, Any]]] = defaultdict(lambda: defaultdict(dict))
+    gold_items: dict[str, dict[int, dict[str, FieldGold]]] = defaultdict(lambda: defaultdict(dict))
+    for p in predictions:
+        split = _split_first_index(p.path)
+        if split is not None:
+            prefix, idx, rel = split
+            pred_items[prefix][idx][rel] = p.value
+    for g in golds:
+        split = _split_first_index(g.path)
+        if split is not None:
+            prefix, idx, rel = split
+            gold_items[prefix][idx][rel] = g
+
+    remap: dict[str, str] = {}
+    for prefix, p_group in pred_items.items():
+        g_group = gold_items.get(prefix, {})
+        pairs: list[tuple[float, int, int]] = []
+        for i, p_leaves in p_group.items():
+            for j, g_leaves in g_group.items():
+                rels = set(p_leaves) | set(g_leaves)
+                if not rels:
+                    continue
+                matches = sum(
+                    1
+                    for rel in rels
+                    if rel in p_leaves
+                    and rel in g_leaves
+                    and value_correct(p_leaves[rel], g_leaves[rel], semantic_tau=semantic_tau)
+                )
+                sim = matches / len(rels)
+                if sim > 0:
+                    pairs.append((sim, i, j))
+        pairs.sort(key=lambda t: (-t[0], t[1], t[2]))
+        used_p: set[int] = set()
+        used_g: set[int] = set()
+        target: dict[int, int] = {}
+        for _sim, i, j in pairs:
+            if i in used_p or j in used_g:
+                continue
+            target[i] = j
+            used_p.add(i)
+            used_g.add(j)
+        next_free = (max(g_group) if g_group else -1) + 1
+        for i in sorted(p_group):
+            if i not in target:
+                while next_free in g_group:
+                    next_free += 1
+                target[i] = next_free
+                next_free += 1
+        for i, dst in target.items():
+            if i == dst:
+                continue
+            for rel in p_group[i]:
+                remap[_join_index(prefix, i, rel)] = _join_index(prefix, dst, rel)
+    return remap
+
+
 def score_fields(
     predictions: list[FieldPrediction],
     golds: list[FieldGold],
     semantic_tau: float = 0.5,
+    align_arrays: bool = False,
 ) -> ExtractionReport:
     """Score predictions against gold under each field's own rule.
 
@@ -222,6 +327,8 @@ def score_fields(
     if len(gold_by_path) != len(golds):
         raise ValueError("duplicate gold paths")
 
+    remap = _greedy_align_arrays(predictions, golds, semantic_tau) if align_arrays else {}
+
     scores: list[FieldScore] = []
     hallucinated: list[str] = []
     predicted_paths: set[str] = set()
@@ -231,8 +338,9 @@ def score_fields(
     for pred in predictions:
         if pred.value is None:
             continue  # an explicit None is an omission, not an assertion
-        predicted_paths.add(pred.path)
-        gold = gold_by_path.get(pred.path)
+        scored_path = remap.get(pred.path, pred.path)
+        predicted_paths.add(scored_path)
+        gold = gold_by_path.get(scored_path)
         if gold is None:
             hallucinated.append(pred.path)
             scores.append(
