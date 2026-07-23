@@ -138,3 +138,26 @@ def paired_bootstrap_test(
     p_le = (1 + (means <= 0).sum()) / (1 + n_boot)
     p_ge = (1 + (means >= 0).sum()) / (1 + n_boot)
     return float(min(1.0, 2.0 * min(p_le, p_ge)))
+
+
+def holm_bonferroni(pvalues: Sequence[float], alpha: float = 0.05) -> list[bool]:
+    """Holm--Bonferroni step-down multiple-testing correction.
+
+    Given ``m`` p-values from a family of comparisons, returns ``reject[i]``
+    (aligned to input order) controlling the family-wise error rate at ``alpha``.
+    Sort ascending; reject the k-th smallest iff it and all smaller ones satisfy
+    ``p <= alpha / (m - rank)``; stop at the first failure (step-down). Uniformly
+    more powerful than plain Bonferroni while keeping the same FWER guarantee.
+    """
+    p = [float(v) for v in pvalues]
+    m = len(p)
+    if m == 0:
+        return []
+    order = sorted(range(m), key=lambda i: p[i])
+    reject = [False] * m
+    for rank, i in enumerate(order):
+        if p[i] <= alpha / (m - rank):
+            reject[i] = True
+        else:
+            break
+    return reject

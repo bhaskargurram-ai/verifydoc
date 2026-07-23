@@ -9,6 +9,14 @@ import numpy as np
 import pytest
 
 from verifydoc.calibration import ConformalAbstention, GroupConformalAbstention, grounded_group
+from verifydoc.calibration.grouped_conformal import (
+    GROUP_TAXONOMIES,
+    GroupPartitionSelector,
+    combine_groups,
+    field_type_group,
+    support_bin_group,
+    value_length_group,
+)
 from verifydoc.types import FieldPrediction, Grounding
 
 
@@ -124,3 +132,67 @@ class TestGuaranteeAndCoverage:
             if mask.any():
                 risks.append(1.0 - test_y[mask].mean())
         assert np.mean(risks) <= alpha + 0.02
+
+
+def _fp(value, conf, support):
+    g = Grounding(page=0, support=support) if support is not None else None
+    return FieldPrediction(path="f", value=value, confidence=conf, grounding=g)
+
+
+class TestTaxonomies:
+    def test_support_bin_group(self):
+        assert support_bin_group(_fp("x", 0.9, None)) == "ungrounded"
+        assert support_bin_group(_fp("x", 0.9, 0.3)) == "supp0"  # < 0.5
+        assert support_bin_group(_fp("x", 0.9, 0.6)) == "supp1"  # [0.5, 0.8)
+        assert support_bin_group(_fp("x", 0.9, 0.9)) == "supp2"  # >= 0.8
+
+    def test_value_length_group(self):
+        assert value_length_group(_fp("2", 0.9, 0.9)) == "len0"  # len 1 < 3
+        assert value_length_group(_fp("12345", 0.9, 0.9)) == "len1"  # [3, 8)
+        assert value_length_group(_fp("a long value here", 0.9, 0.9)) == "len2"  # >= 8
+
+    def test_field_type_group(self):
+        assert field_type_group(_fp("", 0.9, 0.9)) == "empty"
+        assert field_type_group(_fp(None, 0.9, 0.9)) == "empty"
+        assert field_type_group(_fp("45.50", 0.9, 0.9)) == "numeric"
+        assert field_type_group(_fp("$1,234", 0.9, 0.9)) == "numeric"
+        assert field_type_group(_fp("Acme Corp", 0.9, 0.9)) == "text"
+
+    def test_combine_groups_is_cross_product(self):
+        fn = combine_groups(grounded_group, field_type_group)
+        assert fn(_fp("45.50", 0.9, 0.9)) == "grounded|numeric"
+        assert fn(_fp("Acme", 0.9, 0.1)) == "ungrounded|text"
+
+    def test_catalog_has_expected_taxonomies(self):
+        assert {"grounded", "support_bin", "value_length", "field_type"} <= set(GROUP_TAXONOMIES)
+
+
+class TestGroupPartitionSelector:
+    @staticmethod
+    def _population(rng, n):
+        """Short numerics are unreliable; long grounded values are reliable —
+        so a length/grounding taxonomy should be selected over none."""
+        preds, corr = [], []
+        for _ in range(n):
+            if rng.random() < 0.5:  # short numeric, spuriously grounded, unreliable
+                preds.append(_fp(str(rng.integers(0, 9)), 0.5 + 0.5 * rng.random(), 0.9))
+                corr.append(int(rng.random() < 0.5))
+            else:  # long grounded value, reliable
+                preds.append(_fp("a-longer-value", 0.5 + 0.5 * rng.random(), 0.9))
+                corr.append(int(rng.random() < 0.95))
+        return preds, np.array(corr, dtype=float)
+
+    def test_selects_a_taxonomy_and_holds_guarantee(self):
+        rng = np.random.default_rng(0)
+        sel_p, sel_y = self._population(rng, 400)
+        fit_p, fit_y = self._population(rng, 400)
+        test_p, test_y = self._population(rng, 400)
+        selector = GroupPartitionSelector(alpha=0.10).fit(sel_p, sel_y, fit_p, fit_y)
+        assert selector.selected_ in GROUP_TAXONOMIES
+        mask = selector.accept(test_p)
+        if mask.any():
+            assert (1.0 - test_y[mask].mean()) <= 0.10 + 0.05  # per-group guarantee w/ slack
+
+    def test_requires_fit(self):
+        with pytest.raises(RuntimeError):
+            GroupPartitionSelector().accept([_fp("x", 0.9, 0.9)])
