@@ -43,6 +43,7 @@
  <div class="schema"><label>Schema (JSON)</label><textarea id="schema">{"type":"object","properties":{"total":{"type":"number","x-numeric-tol":0.01}}}</textarea></div>
  <div><label>Adapter</label><br><select id="adapter"><option>text-search</option><option>rapidocr</option><option>api-vlm</option><option>hf-vlm</option></select></div>
  <div><label>Threshold</label><br><input id="threshold" type="number" value="0.8" step="0.05" min="0" max="1" style="width:80px"></div>
+ <div><label>Anthropic key (optional · for api-vlm)</label><br><input id="apikey" type="password" placeholder="sk-ant-… used only for this request" autocomplete="off" style="width:250px"></div>
  <div><button onclick="run()">Verify</button></div>
 </div>
 <main>
@@ -67,15 +68,17 @@ async function run(){
  const threshold=parseFloat(document.getElementById("threshold").value);
  const file=document.getElementById("file").files[0];
  const text=document.getElementById("text").value;
+ const apikey=document.getElementById("apikey").value.trim();
  try{
   let res;
   if(file){
    const fd=new FormData(); fd.append("file",file); fd.append("schema",schema);
    fd.append("adapter",adapter); fd.append("threshold",threshold);
+   if(apikey)fd.append("api_key",apikey);
    res=await fetch("/verify/upload",{method:"POST",body:fd});
   }else{
    res=await fetch("/verify",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({document:text,schema:JSON.parse(schema),adapter,threshold})});
+    body:JSON.stringify({document:text,schema:JSON.parse(schema),adapter,threshold,api_key:apikey||null})});
   }
   if(!res.ok){src.classList.add("err");src.textContent=await res.text();return;}
   const data=await res.json();

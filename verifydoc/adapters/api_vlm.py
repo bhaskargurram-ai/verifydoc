@@ -69,12 +69,17 @@ class OpenAIClient:
 class AnthropicClient:
     """Anthropic messages client (lazy import)."""
 
-    def __init__(self, model: str = "claude-sonnet-5") -> None:  # pragma: no cover - network
+    def __init__(
+        self, model: str = "claude-sonnet-5", api_key: str | None = None
+    ) -> None:  # pragma: no cover - network
         try:
             import anthropic
         except ImportError as exc:
             raise ImportError("AnthropicClient requires: pip install anthropic") from exc
-        self._client = anthropic.Anthropic()
+        # api_key=None -> the SDK falls back to the ANTHROPIC_API_KEY env var;
+        # an explicit key (e.g. a user's bring-your-own key) is used for this
+        # client only and never stored.
+        self._client = anthropic.Anthropic(api_key=api_key)
         self._model = model
         self._send_temperature = True  # some newer models deprecate it; detected at runtime
 

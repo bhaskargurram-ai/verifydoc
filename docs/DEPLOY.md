@@ -102,6 +102,13 @@ and wire a `workflow_dispatch` job (`google-github-actions/deploy-cloudrun` +
 **Simplest non-GCP demo:** push the same image to a **Hugging Face Space**
 (Docker SDK) — a public URL with no cloud account beyond HF.
 
+**Live instance:** Cloud Run in `zastiai-5062a` (demo mode, no shared key) at
+`https://verifydoc-…-uc.a.run.app`, fronted by a **dedicated** Firebase Hosting
+site `verifydoc-demo` in `timesheet-9efdb` → **https://verifydoc-demo.web.app**.
+Because Cloud Run and the Firebase project differ, Firebase *redirects* to Cloud
+Run (a same-project `run` rewrite can't cross projects); the dedicated site
+leaves the timesheet project's default hosting untouched.
+
 ## Privacy model
 
 - With a **local** adapter (`text-search`, `rapidocr`, a local HF VLM) the

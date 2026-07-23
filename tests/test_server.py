@@ -188,3 +188,22 @@ class TestDemoMode:
             "/verify", json={"document": RECEIPT, "schema": SCHEMA, "adapter": "text-search"}
         )
         assert r.status_code == 200 and "fields" in r.json()
+
+
+class TestBringYourOwnKey:
+    def test_byo_key_builds_api_adapter_even_in_demo(self, monkeypatch):
+        pytest.importorskip("anthropic")
+        from verifydoc.server.app import _resolve_adapter
+
+        monkeypatch.setenv("VERIFYDOC_DEMO", "1")
+        adapter = _resolve_adapter("api-vlm", "sk-ant-byo-test")  # no network at construction
+        assert adapter is not None and adapter.name == "api-vlm"
+
+    def test_demo_api_vlm_without_key_is_rejected(self, monkeypatch):
+        from fastapi import HTTPException
+
+        from verifydoc.server.app import _resolve_adapter
+
+        monkeypatch.setenv("VERIFYDOC_DEMO", "1")
+        with pytest.raises(HTTPException):
+            _resolve_adapter("api-vlm", None)

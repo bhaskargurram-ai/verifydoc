@@ -12,8 +12,9 @@ RUN apt-get update \
 
 COPY . /app
 
-# server + local extraction (text/PDF/OCR) so documents can be processed on-box
-RUN pip install --no-cache-dir -e ".[server,pdf,ocr]"
+# server + local extraction (text/PDF/OCR) + the api extra so users can bring
+# their own key for the api-vlm model (never a shared server key in the demo)
+RUN pip install --no-cache-dir -e ".[server,pdf,ocr,api]"
 
 EXPOSE 8000
 ENV VERIFYDOC_HOST=0.0.0.0 \
