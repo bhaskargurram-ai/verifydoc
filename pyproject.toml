@@ -47,6 +47,12 @@ data = ["datasets>=2.16"]
 ocr = ["rapidocr>=1.3", "onnxruntime>=1.17"]
 api = ["anthropic>=0.39", "openai>=1.40"]
 mcp = ["mcp>=1.2"]
+server = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "python-multipart>=0.0.9",
+    "httpx>=0.27",
+]
 dev = [
     "pytest>=7.4",
     "pytest-cov>=4.1",
@@ -59,6 +65,7 @@ dev = [
 [project.scripts]
 verifydoc = "verifydoc.cli:app"
 verifydoc-mcp = "verifydoc.mcp_server:main"
+verifydoc-server = "verifydoc.server.app:main"
 
 [project.urls]
 Homepage = "https://github.com/bhaskargurram-ai/verifydoc"

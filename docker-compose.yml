@@ -1,0 +1,19 @@
+# One-command self-host:  docker compose up  ->  http://localhost:8000
+# Documents are processed inside this container on your own infra.
+services:
+  verifydoc:
+    build: .
+    image: ghcr.io/bhaskargurram-ai/verifydoc:latest
+    ports:
+      - "8000:8000"
+    environment:
+      VERIFYDOC_HOST: "0.0.0.0"
+      VERIFYDOC_PORT: "8000"
+      # --- Messaging bots (optional; unset = disabled) ---
+      # TELEGRAM_BOT_TOKEN: "..."         # from @BotFather
+      # TELEGRAM_WEBHOOK_SECRET: "..."    # your random string; set on setWebhook
+      # WHATSAPP_VERIFY_TOKEN: "..."      # your random string; set in Meta console
+      # WHATSAPP_APP_SECRET: "..."        # Meta app secret (verifies X-Hub-Signature-256)
+      # WHATSAPP_TOKEN: "..."             # Cloud API access token
+      # WHATSAPP_PHONE_ID: "..."          # Cloud API phone number id
+    restart: unless-stopped
