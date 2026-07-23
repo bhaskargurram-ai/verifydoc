@@ -66,3 +66,38 @@ The agent policy becomes simple and safe: **act on `accept` fields; surface
   the exact page region before acting on it.
 - **Model-agnostic** — swap the `adapter` (OCR pipeline, VLM API, your own)
   without changing the agent contract.
+
+## Publishing to the MCP registry (#34)
+
+VerifyDoc ships a validated [`server.json`](https://github.com/bhaskargurram-ai/verifydoc/blob/main/server.json)
+(namespace `io.github.bhaskargurram-ai/verifydoc`, PyPI package `verifydoc`,
+`verifydoc-mcp` stdio runtime). Two publish steps remain — both need an
+**interactive GitHub login** (to prove ownership of the namespace), so run them
+yourself from a checkout:
+
+**1. Official MCP registry** — publish with the [`mcp-publisher`](https://github.com/modelcontextprotocol/registry) CLI:
+
+```bash
+# one-time: prove you own the io.github.bhaskargurram-ai namespace via GitHub OAuth
+mcp-publisher login github
+# from the repo root (where server.json lives):
+mcp-publisher publish
+```
+
+Package ownership for the PyPI entry is verified by an `mcp-name:` marker in the
+published package. Ensure the release carries it (add to the project README /
+package metadata, then cut a matching version):
+
+```
+mcp-name: io.github.bhaskargurram-ai/verifydoc
+```
+
+**2. `awesome-mcp-servers`** — fork [`punkpeye/awesome-mcp-servers`](https://github.com/punkpeye/awesome-mcp-servers),
+add this line under the relevant category (e.g. *Data Extraction* / *File
+Systems*), and open a PR:
+
+```markdown
+- [bhaskargurram-ai/verifydoc](https://github.com/bhaskargurram-ai/verifydoc) 🐍 🏠 - Trust layer for document→JSON extraction: every field returns a calibrated confidence, source grounding (page/bbox), and an accept/review decision.
+```
+
+(`🐍` Python · `🏠` local/self-hosted.) Once both land, close #34.
