@@ -67,13 +67,13 @@ class TestRestApi:
         r = client.post("/verify/upload", files=files, data={"schema": "{not json"})
         assert r.status_code == 400
 
-    def test_index_serves_web_app(self, client):
+    def test_index_serves_review_cockpit(self, client):
         r = client.get("/")
-        assert (
-            r.status_code == 200
-            and "VerifyDoc" in r.text
-            and "text/html" in r.headers["content-type"]
-        )
+        assert r.status_code == 200
+        assert "text/html" in r.headers["content-type"]
+        # the two-pane review cockpit, loaded from review.html
+        assert "VerifyDoc" in r.text
+        assert "review cockpit" in r.text and "Source" in r.text and "Export JSON" in r.text
 
 
 class TestWebhookHelpers:

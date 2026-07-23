@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0e8a16">
+<title>VerifyDoc — review cockpit</title>
+<style>
+ :root{--ok:#0e8a16;--rev:#d93f0b;--done:#1f6feb;--bg:#0d1117;--fg:#e6edf3;--card:#161b22;--mut:#8b949e;--line:#30363d}
+ *{box-sizing:border-box} body{margin:0;font:14px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+ header{display:flex;align-items:center;gap:16px;padding:12px 18px;border-bottom:1px solid var(--line)}
+ header h1{margin:0;font-size:17px} .sum{color:var(--mut);font-size:13px}
+ header .grow{flex:1}
+ button{padding:8px 14px;background:var(--ok);color:#fff;border:0;border-radius:6px;font-weight:600;cursor:pointer}
+ button.ghost{background:#21262d;color:var(--fg);border:1px solid var(--line)}
+ .controls{display:flex;flex-wrap:wrap;gap:10px;padding:12px 18px;border-bottom:1px solid var(--line);align-items:end}
+ .controls label{display:block;font-size:12px;color:var(--mut);margin-bottom:3px}
+ input,textarea,select{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:7px;font:inherit}
+ textarea{min-height:52px;width:320px} .controls .schema textarea{width:360px}
+ main{display:grid;grid-template-columns:minmax(360px,1fr) minmax(360px,1fr);gap:0;height:calc(100vh - 118px)}
+ .pane{overflow:auto;padding:14px} .pane.left{border-right:1px solid var(--line)}
+ h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin:0 0 10px}
+ .field{padding:9px 11px;margin:7px 0;background:var(--card);border-left:4px solid var(--mut);border-radius:6px;cursor:pointer}
+ .field.accept{border-left-color:var(--ok)} .field.review{border-left-color:var(--rev)} .field.done{border-left-color:var(--done)}
+ .field.sel{outline:2px solid var(--done)}
+ .field .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+ .field .path{font-weight:600} .field .badge{font-size:11px;color:var(--mut)}
+ .field input.val{width:100%;margin-top:6px}
+ .bar{height:4px;background:#21262d;border-radius:2px;margin-top:7px;overflow:hidden}
+ .bar>i{display:block;height:100%;background:var(--ok)}
+ .src{white-space:pre-wrap;font:13px/1.6 ui-monospace,monospace;background:var(--card);padding:12px;border-radius:6px}
+ mark{border-radius:3px;padding:0 1px;cursor:pointer} mark.accept{background:#1a4d2e;color:#c9f5d5}
+ mark.review{background:#5a2418;color:#ffd6cc} mark.done{background:#12385f;color:#cfe6ff} mark.flash{outline:2px solid var(--fg)}
+ .hint{color:var(--mut);font-size:12px;margin-top:8px} .err{color:var(--rev)}
+</style></head><body>
+<header>
+ <h1>🔒 VerifyDoc</h1>
+ <div class="sum" id="summary">Verify a document to start reviewing.</div>
+ <div class="grow"></div>
+ <button class="ghost" onclick="exportJSON()">Export JSON</button>
+</header>
+<div class="controls">
+ <div><label>Upload PDF/image</label><input type="file" id="file"></div>
+ <div><label>…or paste document text</label><textarea id="text" placeholder="Invoice #: INV-9&#10;Total: $1,234.50"></textarea></div>
+ <div class="schema"><label>Schema (JSON)</label><textarea id="schema">{"type":"object","properties":{"total":{"type":"number","x-numeric-tol":0.01}}}</textarea></div>
+ <div><label>Adapter</label><br><select id="adapter"><option>text-search</option><option>rapidocr</option><option>api-vlm</option><option>hf-vlm</option></select></div>
+ <div><label>Threshold</label><br><input id="threshold" type="number" value="0.8" step="0.05" min="0" max="1" style="width:80px"></div>
+ <div><button onclick="run()">Verify</button></div>
+</div>
+<main>
+ <div class="pane left"><h2>Fields — ⚠️ review need a human (Tab to move · Enter to confirm)</h2><div id="fields"></div></div>
+ <div class="pane right"><h2>Source</h2><div id="source" class="src">—</div></div>
+</main>
+<script>
+let STATE = {fields: [], text: "", sel: -1};
+
+function flatten(nested){
+ const out=[];
+ (function walk(o,p){for(const k in o){const v=o[k];const np=p?p+"."+k:k;
+   if(v&&typeof v==="object"&&"decision"in v)out.push(Object.assign({path:np},v));
+   else if(v&&typeof v==="object")walk(v,np);}})(nested,"");
+ return out;
+}
+
+async function run(){
+ const src=document.getElementById("source"); src.classList.remove("err"); src.textContent="Verifying…";
+ const schema=document.getElementById("schema").value;
+ const adapter=document.getElementById("adapter").value;
+ const threshold=parseFloat(document.getElementById("threshold").value);
+ const file=document.getElementById("file").files[0];
+ const text=document.getElementById("text").value;
+ try{
+  let res;
+  if(file){
+   const fd=new FormData(); fd.append("file",file); fd.append("schema",schema);
+   fd.append("adapter",adapter); fd.append("threshold",threshold);
+   res=await fetch("/verify/upload",{method:"POST",body:fd});
+  }else{
+   res=await fetch("/verify",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({document:text,schema:JSON.parse(schema),adapter,threshold})});
+  }
+  if(!res.ok){src.classList.add("err");src.textContent=await res.text();return;}
+  const data=await res.json();
+  STATE={fields:flatten(data.fields),text:file?"":text,sel:-1};
+  render();
+ }catch(e){src.classList.add("err");src.textContent=String(e);}
+}
+
+function cls(f){return f.reviewed?"done":f.decision;}
+
+function render(){
+ const F=STATE.fields;
+ const nAcc=F.filter(f=>f.decision==="accept").length, nRev=F.filter(f=>f.decision==="review").length;
+ const done=F.filter(f=>f.reviewed).length;
+ document.getElementById("summary").textContent=
+   `${F.length} fields · ${nAcc} auto-accepted · ${nRev} to review · ${done} confirmed · STP ${(F.length?100*nAcc/F.length:0).toFixed(0)}%`;
+ // left: field cards
+ const fd=document.getElementById("fields"); fd.innerHTML="";
+ F.forEach((f,i)=>{
+  const d=document.createElement("div"); d.className="field "+cls(f)+(i===STATE.sel?" sel":""); d.dataset.i=i;
+  const conf=(f.confidence*100).toFixed(0);
+  const where=f.grounding?(" · page "+f.grounding.page):" · not grounded";
+  d.innerHTML=`<div class="top"><span class="path">${f.path}</span>`+
+    `<span class="badge">${f.reviewed?"✔ confirmed":(f.decision==="accept"?"✅ accept":"⚠️ review")} · ${conf}%${where}</span></div>`+
+    `<div class="bar"><i style="width:${conf}%;background:${f.decision==="accept"?"var(--ok)":"var(--rev)"}"></i></div>`;
+  const inp=document.createElement("input"); inp.className="val"; inp.value=(f.value==null?"":f.value);
+  inp.addEventListener("input",e=>{f.value=e.target.value; f.edited=true;});
+  d.appendChild(inp);
+  d.addEventListener("click",()=>select(i));
+  fd.appendChild(d);
+ });
+ // right: source with highlights (text path only)
+ const src=document.getElementById("source");
+ if(STATE.text){
+  const spans=F.map((f,i)=>({i,s:f.grounding&&f.grounding.char_span?f.grounding.char_span[0]:-1,
+                             e:f.grounding&&f.grounding.char_span?f.grounding.char_span[1]:-1,f}))
+                .filter(x=>x.s>=0&&x.e>x.s).sort((a,b)=>a.s-b.s);
+  let html="",cur=0;
+  for(const x of spans){ if(x.s<cur)continue;
+    html+=esc(STATE.text.slice(cur,x.s))+`<mark class="${cls(x.f)}" data-i="${x.i}" onclick="select(${x.i})">`+esc(STATE.text.slice(x.s,x.e))+"</mark>";
+    cur=x.e; }
+  html+=esc(STATE.text.slice(cur));
+  src.innerHTML=html||esc(STATE.text);
+ }else{
+  src.innerHTML=`<div class="hint">Uploaded file — per-field grounding shown on the left (page/bbox). Paste text to see inline source highlighting.</div>`;
+ }
+}
+
+function esc(s){return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+
+function select(i){
+ STATE.sel=i; render();
+ const mark=document.querySelector(`mark[data-i="${i}"]`);
+ if(mark){mark.classList.add("flash");mark.scrollIntoView({block:"center",behavior:"smooth"});setTimeout(()=>mark.classList.remove("flash"),900);}
+ const card=document.querySelector(`.field[data-i="${i}"]`);
+ if(card)card.scrollIntoView({block:"nearest"});
+}
+
+function reviewIndices(){return STATE.fields.map((f,i)=>i).filter(i=>STATE.fields[i].decision==="review");}
+
+document.addEventListener("keydown",e=>{
+ if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA"){if(e.key!=="Enter")return;}
+ const revs=reviewIndices(); if(!revs.length)return;
+ if(e.key==="Tab"){e.preventDefault();
+  const pos=revs.indexOf(STATE.sel); const next=revs[(pos+(e.shiftKey?-1:1)+revs.length)%revs.length];
+  select(next);
+ }else if(e.key==="Enter"&&STATE.sel>=0){e.preventDefault();
+  STATE.fields[STATE.sel].reviewed=true; const revs2=reviewIndices().filter(i=>!STATE.fields[i].reviewed);
+  render(); if(revs2.length)select(revs2[0]);
+ }
+});
+
+function exportJSON(){
+ const obj={}; for(const f of STATE.fields) obj[f.path]={value:f.value,confidence:f.confidence,decision:f.reviewed?"confirmed":f.decision,edited:!!f.edited};
+ const blob=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"});
+ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="verified.json"; a.click();
+}
+</script></body></html>

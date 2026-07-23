@@ -112,74 +112,7 @@ def build_app() -> FastAPI:
     return app
 
 
-_INDEX_HTML = """<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0e8a16">
-<title>VerifyDoc</title>
-<style>
- :root{--ok:#0e8a16;--rev:#d93f0b;--bg:#0d1117;--fg:#e6edf3;--card:#161b22;--mut:#8b949e}
- *{box-sizing:border-box} body{margin:0;font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--fg)}
- header{padding:20px;border-bottom:1px solid #30363d} h1{margin:0;font-size:20px}
- .sub{color:var(--mut);font-size:13px} main{max-width:820px;margin:0 auto;padding:20px}
- label{display:block;margin:12px 0 4px;font-size:13px;color:var(--mut)}
- textarea,input,select{width:100%;padding:8px;background:var(--card);color:var(--fg);border:1px solid #30363d;border-radius:6px;font:inherit}
- textarea{min-height:80px} .row{display:flex;gap:12px} .row>div{flex:1}
- button{margin-top:14px;padding:10px 16px;background:var(--ok);color:#fff;border:0;border-radius:6px;font-weight:600;cursor:pointer}
- .field{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;margin:6px 0;background:var(--card);border-left:4px solid var(--mut);border-radius:6px}
- .accept{border-left-color:var(--ok)} .review{border-left-color:var(--rev)}
- .val{font-weight:600} .meta{color:var(--mut);font-size:12px} .err{color:var(--rev)}
-</style></head><body>
-<header><h1>🔒 VerifyDoc</h1><div class="sub">Per-field confidence · source grounding · accept/review. Runs on your infra.</div></header>
-<main>
- <label>Document (upload a PDF/image, or paste text below)</label>
- <input type="file" id="file">
- <label>…or paste document text</label>
- <textarea id="text" placeholder="Invoice #: INV-1&#10;Total: $1,234.50"></textarea>
- <div class="row">
-  <div><label>Schema (JSON)</label><textarea id="schema">{"type":"object","properties":{"total":{"type":"number","x-numeric-tol":0.01}}}</textarea></div>
- </div>
- <div class="row">
-  <div><label>Adapter</label><select id="adapter"><option>text-search</option><option>rapidocr</option><option>api-vlm</option></select></div>
-  <div><label>Threshold</label><input id="threshold" type="number" value="0.8" step="0.05" min="0" max="1"></div>
- </div>
- <button onclick="run()">Verify</button>
- <div id="out"></div>
-</main>
-<script>
-async function run(){
- const out=document.getElementById('out'); out.innerHTML='Verifying…';
- const schema=document.getElementById('schema').value;
- const adapter=document.getElementById('adapter').value;
- const threshold=document.getElementById('threshold').value;
- const file=document.getElementById('file').files[0];
- const text=document.getElementById('text').value;
- try{
-  let res;
-  if(file){
-   const fd=new FormData(); fd.append('file',file); fd.append('schema',schema);
-   fd.append('adapter',adapter); fd.append('threshold',threshold);
-   res=await fetch('/verify/upload',{method:'POST',body:fd});
-  }else{
-   res=await fetch('/verify',{method:'POST',headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({document:text,schema:JSON.parse(schema),adapter,threshold:parseFloat(threshold)})});
-  }
-  if(!res.ok){out.innerHTML='<p class="err">'+(await res.text())+'</p>';return;}
-  const data=await res.json(); render(data,out);
- }catch(e){out.innerHTML='<p class="err">'+e+'</p>';}
-}
-function render(data,out){
- const flat=[]; (function walk(o,p){for(const k in o){const v=o[k];const np=p?p+'.'+k:k;
-   if(v&&typeof v==='object'&&'decision' in v)flat.push([np,v]);else if(v&&typeof v==='object')walk(v,np);}})(data.fields,'');
- let h='<p class="meta">'+data.n_accepted+' accepted, '+data.n_review+' to review</p>';
- for(const [path,f] of flat){
-  h+='<div class="field '+f.decision+'"><div><div class="val">'+path+' = '+JSON.stringify(f.value)+'</div>'+
-     '<div class="meta">confidence '+f.confidence.toFixed(2)+(f.grounding?(' · page '+f.grounding.page):' · not grounded')+'</div></div>'+
-     '<div>'+(f.decision==='accept'?'✅':'⚠️')+'</div></div>';
- }
- out.innerHTML=h;
-}
-</script></body></html>"""
+_INDEX_HTML = (Path(__file__).parent / "review.html").read_text(encoding="utf-8")
 
 
 def main() -> None:  # pragma: no cover - entrypoint
