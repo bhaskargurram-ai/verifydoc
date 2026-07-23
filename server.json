@@ -1,0 +1,27 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "io.github.bhaskargurram-ai/verifydoc",
+  "description": "Trust layer for document extraction: verify_extraction returns per-field calibrated confidence, source grounding, and an accept/review decision.",
+  "repository": {
+    "url": "https://github.com/bhaskargurram-ai/verifydoc",
+    "source": "github"
+  },
+  "version": "0.9.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "verifydoc",
+      "version": "0.9.0",
+      "runtimeHint": "verifydoc-mcp",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "ANTHROPIC_API_KEY",
+          "description": "Optional: enables the api-vlm extractor adapter.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

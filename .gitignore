@@ -52,3 +52,6 @@ paper/main.pdf
 # local secrets (never commit)
 .env.secret
 .env.local
+
+# MkDocs build output
+site/
