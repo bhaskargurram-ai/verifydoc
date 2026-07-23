@@ -3,9 +3,14 @@
 > **The trust layer for document → structured-JSON extraction.** Wrap any extractor — get back JSON where **every field** carries a **calibrated confidence**, a **source grounding** (page + bbox / char span), and an **accept/review decision** tuned to your error budget.
 
 [![CI](https://github.com/bhaskargurram-ai/verifydoc/actions/workflows/ci.yml/badge.svg)](https://github.com/bhaskargurram-ai/verifydoc/actions/workflows/ci.yml)
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![PyPI version](https://img.shields.io/pypi/v/verifydoc.svg)](https://pypi.org/project/verifydoc/)
+[![Downloads](https://img.shields.io/pypi/dm/verifydoc.svg)](https://pypi.org/project/verifydoc/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](pyproject.toml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![GitHub stars](https://img.shields.io/github/stars/bhaskargurram-ai/verifydoc?style=flat)](https://github.com/bhaskargurram-ai/verifydoc/stargazers)
+
+**Every other parser tells you *what* it read; VerifyDoc tells you *which values to trust*.**
 
 > **🔒 Private by default — your documents never leave your machine.** Every extractor can run fully **local and offline** (RapidOCR, PaddleOCR, dots.ocr, Docling, or a local HF VLM); hosted API models are opt-in and comparison-only. Self-host the whole review app + API on your own infra, or call it from a **web app** or a **WhatsApp / Telegram bot** — the operator controls the data end to end.
 
@@ -31,8 +36,11 @@ At a chosen operating point, VerifyDoc auto-accepts as many fields as possible w
 ## Quickstart
 
 ```bash
-pip install verifydoc          # core (text pipelines + eval harness)
-pip install 'verifydoc[pdf]'   # + PDF/image ingestion
+pip install verifydoc                 # core (text pipelines + eval harness)
+pip install 'verifydoc[pdf]'          # + PDF/image ingestion
+uvx verifydoc extract doc.pdf --schema schema.json   # zero-install run (uv)
+pipx install verifydoc                # isolated CLI install
+docker run -p 8000:8000 ghcr.io/bhaskargurram-ai/verifydoc   # self-hosted API + web UI
 ```
 
 ```python
@@ -94,6 +102,19 @@ VerifyDoc is a **drop-in trust layer** — it wraps whatever you already use. No
 | **Any REST client / web / mobile** | self-hosted FastAPI server + web app + WhatsApp/Telegram bots | [deploy](docs/DEPLOY.md) |
 
 See [`docs/QUICKSTART_INTEGRATIONS.md`](docs/QUICKSTART_INTEGRATIONS.md) for copy-paste snippets and [`examples/`](examples/) for runnable end-to-end scripts.
+
+## How VerifyDoc compares
+
+VerifyDoc doesn't replace your parser — it adds the trust layer none of them ship:
+
+| | per-field confidence | calibrated | source grounding | accept/review abstention | open-source |
+|---|:---:|:---:|:---:|:---:|:---:|
+| **VerifyDoc** (on top of any extractor) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Docling / MinerU / Marker | ❌ | ❌ | boxes only\* | ❌ | ✅ |
+| PaddleOCR / dots.ocr | raw score | ❌ | boxes | ❌ | ✅ |
+| Box / Azure / Textract | ✅ | ❓ | ✅ | ❌ | ❌ |
+
+<sub>\*layout parsers emit boxes but no per-field *correctness* signal. Full audit: [docs/USP.md](docs/USP.md).</sub>
 
 ## What's inside
 

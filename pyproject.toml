@@ -72,6 +72,8 @@ verifydoc-bot = "verifydoc.server.poll:main"
 [project.urls]
 Homepage = "https://github.com/bhaskargurram-ai/verifydoc"
 Repository = "https://github.com/bhaskargurram-ai/verifydoc"
+Documentation = "https://github.com/bhaskargurram-ai/verifydoc/tree/main/docs"
+Changelog = "https://github.com/bhaskargurram-ai/verifydoc/blob/main/CHANGELOG.md"
 Issues = "https://github.com/bhaskargurram-ai/verifydoc/issues"
 
 [tool.hatch.build.targets.wheel]
