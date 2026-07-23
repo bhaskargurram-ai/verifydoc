@@ -9,6 +9,7 @@ guarantee row. ``scripts/run_benchmark.py`` is a thin CLI over this module;
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -381,6 +382,8 @@ def run_benchmark(cfg: dict[str, Any], out_dir: str | Path) -> dict[str, Any]:
             "within_group_auroc": report.within_group_auroc,
             "recommend_grouped": report.recommend,
         }
+    # persist the summary so the leaderboard (verifydoc.eval.leaderboard) can rank runs
+    (out / "summary.json").write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
     return summary
 
 
