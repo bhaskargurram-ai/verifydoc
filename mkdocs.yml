@@ -1,0 +1,49 @@
+site_name: VerifyDoc
+site_description: The trust layer for document → structured-JSON extraction.
+site_url: https://bhaskargurram-ai.github.io/verifydoc/
+repo_url: https://github.com/bhaskargurram-ai/verifydoc
+repo_name: bhaskargurram-ai/verifydoc
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: green
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: green
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.suggest
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+
+nav:
+  - Home: index.md
+  - How it works: how-it-works.md
+  - Integrations:
+      - Overview: INTEGRATIONS.md
+      - Quickstart: QUICKSTART_INTEGRATIONS.md
+      - MCP (agents/IDEs): MCP.md
+  - Self-host & bots: DEPLOY.md
+  - Real models (GPU): REAL_MODELS.md
+  - Repo automation: AUTOMATION.md
+  - Why VerifyDoc: USP.md
+  - Related work: RELATED_WORK.md
