@@ -140,6 +140,86 @@ class TestScoreFields:
         assert report.f1 == 0.0 and report.omission_rate == 0.0
 
 
+class TestArrayLeafAlignment:
+    """#5 — greedy best-match alignment of array items (line-items) by content,
+    so reordered arrays are not spuriously mis-scored by index (ExtractBench)."""
+
+    # gold line-items, in order [Widget×2, Gadget×5]
+    GOLDS = [
+        FieldGold(path="items.0.name", value="Widget", scoring="exact"),
+        FieldGold(path="items.0.qty", value=2, scoring="numeric", numeric_tol=0.01),
+        FieldGold(path="items.1.name", value="Gadget", scoring="exact"),
+        FieldGold(path="items.1.qty", value=5, scoring="numeric", numeric_tol=0.01),
+    ]
+    # extractor emitted them reversed: [Gadget×5, Widget×2]
+    PREDS_REVERSED = [
+        FieldPrediction(path="items.0.name", value="Gadget", confidence=0.9),
+        FieldPrediction(path="items.0.qty", value=5, confidence=0.9),
+        FieldPrediction(path="items.1.name", value="Widget", confidence=0.8),
+        FieldPrediction(path="items.1.qty", value=2, confidence=0.8),
+    ]
+
+    def test_index_alignment_mis_scores_reordered_array(self):
+        # default (positional): every leaf lands on the wrong gold item → 0 correct
+        report = score_fields(self.PREDS_REVERSED, self.GOLDS, align_arrays=False)
+        assert report.n_correct == 0
+        assert report.f1 == 0.0
+
+    def test_greedy_alignment_recovers_reordered_array(self):
+        # with alignment: item0↔gold1 and item1↔gold0 both match fully
+        report = score_fields(self.PREDS_REVERSED, self.GOLDS, align_arrays=True)
+        assert report.n_correct == 4
+        assert report.precision == pytest.approx(1.0)
+        assert report.recall == pytest.approx(1.0)
+        assert report.f1 == pytest.approx(1.0)
+        assert report.hallucinated_paths == []
+        assert report.omitted_paths == []
+
+    def test_greedy_picks_best_partial_match(self):
+        golds = [
+            FieldGold(path="items.0.name", value="A", scoring="exact"),
+            FieldGold(path="items.0.qty", value=1, scoring="numeric", numeric_tol=0.01),
+            FieldGold(path="items.1.name", value="B", scoring="exact"),
+            FieldGold(path="items.1.qty", value=2, scoring="numeric", numeric_tol=0.01),
+        ]
+        preds = [
+            # item0: name A (right), qty 9 (wrong) → best match is gold0 (sim 0.5)
+            FieldPrediction(path="items.0.name", value="A", confidence=0.9),
+            FieldPrediction(path="items.0.qty", value=9, confidence=0.9),
+            # item1: name B, qty 2 → exact match to gold1 (sim 1.0)
+            FieldPrediction(path="items.1.name", value="B", confidence=0.9),
+            FieldPrediction(path="items.1.qty", value=2, confidence=0.9),
+        ]
+        report = score_fields(preds, golds, align_arrays=True)
+        assert report.n_correct == 3  # B, qty2, and A; only item0.qty is wrong
+
+    def test_unmatched_predicted_item_scores_as_hallucination(self):
+        golds = [FieldGold(path="items.0.name", value="X", scoring="exact")]
+        preds = [
+            FieldPrediction(path="items.0.name", value="X", confidence=0.9),  # → gold0
+            FieldPrediction(path="items.1.name", value="Z", confidence=0.9),  # no gold
+        ]
+        report = score_fields(preds, golds, align_arrays=True)
+        assert report.n_correct == 1
+        # the extra predicted item is relabelled out of gold range → hallucination
+        assert report.hallucinated_paths == ["items.1.name"]
+        assert report.hallucination_rate == pytest.approx(0.5)
+
+    def test_scalar_array_and_toplevel_fields_coexist(self):
+        golds = [
+            FieldGold(path="vendor", value="ACME", scoring="exact"),
+            FieldGold(path="tags.0", value="a", scoring="exact"),
+            FieldGold(path="tags.1", value="b", scoring="exact"),
+        ]
+        preds = [
+            FieldPrediction(path="vendor", value="ACME", confidence=0.9),
+            FieldPrediction(path="tags.0", value="b", confidence=0.9),  # reversed
+            FieldPrediction(path="tags.1", value="a", confidence=0.9),
+        ]
+        report = score_fields(preds, golds, align_arrays=True)
+        assert report.n_correct == 3  # vendor + both scalar tags after alignment
+
+
 TABLE = "<table><tr><td>a</td><td>b</td></tr></table>"  # 4 nodes
 
 
