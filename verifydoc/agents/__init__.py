@@ -13,13 +13,23 @@ from verifydoc.agents.repair import (
     agentic_verify,
     merge_repairs,
 )
+from verifydoc.agents.schema_infer import (
+    HeuristicSchemaProposer,
+    SchemaProposer,
+    infer_schema,
+    verify_auto,
+)
 
 __all__ = [
     "AgenticResult",
+    "HeuristicSchemaProposer",
     "RepairAttempt",
     "RepairTier",
+    "SchemaProposer",
     "adjudicate",
     "agentic_verify",
     "ensemble_verify",
+    "infer_schema",
     "merge_repairs",
+    "verify_auto",
 ]
