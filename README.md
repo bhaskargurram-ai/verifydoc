@@ -11,10 +11,11 @@
 [![GitHub stars](https://img.shields.io/github/stars/bhaskargurram-ai/verifydoc?style=flat)](https://github.com/bhaskargurram-ai/verifydoc/stargazers)
 [![Docs](https://img.shields.io/badge/docs-online-green.svg)](https://bhaskargurram-ai.github.io/verifydoc/)
 [![Live demo](https://img.shields.io/badge/demo-live-brightgreen.svg)](https://verifydoc-demo.web.app)
+[![Hugging Face Space](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Space-yellow.svg)](https://huggingface.co/spaces/bhaskargurram-ai/verifydoc)
 
 **Every other parser tells you *what* it read; VerifyDoc tells you *which values to trust*.**
 
-**▶ [Try the live demo](https://verifydoc-demo.web.app)** — no install: paste a receipt or upload a PDF and watch fields get accepted or routed to review. (Local extraction; for the Claude model, paste your own API key — it's used only for that request and never stored.)
+**▶ [Try the live demo](https://verifydoc-demo.web.app)** or **[🤗 the Hugging Face Space](https://huggingface.co/spaces/bhaskargurram-ai/verifydoc)** — no install: paste a receipt or upload a PDF and watch fields get accepted or routed to review. (Local extraction; for the Claude model, paste your own API key — it's used only for that request and never stored.)
 
 > **🔒 Private by default — your documents never leave your machine.** Every extractor can run fully **local and offline** (RapidOCR, PaddleOCR, dots.ocr, Docling, or a local HF VLM); hosted API models are opt-in and comparison-only. Self-host the whole review app + API on your own infra, or call it from a **web app** or a **WhatsApp / Telegram bot** — the operator controls the data end to end.
 
@@ -126,13 +127,13 @@ VerifyDoc doesn't replace your parser — it adds the trust layer none of them s
 | Layer | Modules | Status |
 |---|---|---|
 | **Adapters** (all model code isolated here) | mock · text-search · RapidOCR · PaddleOCR · dots.ocr · Docling/MinerU output · API-VLM (OpenAI/Anthropic) | ✅ |
-| **Confidence signals** | token-prob · verbalized · consensus (k-sample voting) · grounding-based · combined | ✅ |
+| **Confidence signals** | token-prob · verbalized · consensus (k-sample voting, **adaptive-k budget control**) · grounding-based · **entailment (pluggable NLI)** · learned combiner | ✅ |
 | **Calibrators** (fit on a dedicated split, never test) | temperature · Platt · isotonic · histogram · **split conformal** · **grounding-conditioned (Mondrian) conformal** (novel — recovers coverage a pooled threshold forfeits) | ✅ |
 | **Grounding** | value → page/bbox/char-span attachment with support scores | ✅ |
 | **Policy** | empirical & conformal accept thresholds for a target selective risk | ✅ |
 | **Eval harness / VerifyDocBench scorer** | Field-F1 · exact · CER/WER · ANLS · TEDS/TEDS-Struct · GriTS · omission vs hallucination · ECE/Adaptive-ECE/MCE/Brier/NLL/TCE · RC/AURC/E-AURC/Coverage@Risk/AUROC/AUPR/FPR@95 · box IoU/span-F1/grounding-conditioned correctness · bootstrap CIs + paired tests | ✅ |
 
-Every metric implements the exact definition in [PROJECT.md §5](PROJECT.md) with a hand-computed numeric regression test (201 tests, `eval/` coverage 98%).
+Every metric implements the exact definition in [PROJECT.md §5](PROJECT.md) with a hand-computed numeric regression test (382 tests, `eval/` coverage 97%).
 
 ## Results on real documents
 
@@ -189,6 +190,7 @@ buys you.
 - [x] v0.4 — vendor-neutral API-VLM extractor (OpenAI/Anthropic) with k-sample consensus; compilable paper with auto-generated tables
 - [x] v0.5 — **novel method** (grounding-conditioned conformal, +0.50 coverage at fixed risk) + **MCP server** (agent trust layer) + real frontier-VLM results
 - [x] v0.6 — method validated on **real data at scale** (FUNSD 24%→71% coverage at 2% risk); inter-annotator-agreement tooling (`verifydoc iaa`); numeric-aware grounding
+- [x] v0.10 — **live hosted demo + 🤗 Hugging Face Space**; `verifydoc batch <dir>`; adaptive-k consensus; entailment-based grounding (NLI); array-leaf alignment; LangGraph review agent
 - [ ] dots.ocr via vllm; SROIE / DocILE / XFUND slices; human-labeled correctness at scale
 - [ ] Paper submission ([contributions welcome](CONTRIBUTING.md))
 
@@ -197,7 +199,7 @@ buys you.
 - [Framework integrations](docs/INTEGRATIONS.md) — drop-in trust layer for Instructor, Pydantic-AI, Outlines, LangChain
 - [How it works](docs/how-it-works.md) — the pipeline, the abstention idea, why grounding is a trust signal
 - [Related work & positioning](docs/RELATED_WORK.md) — how VerifyDoc compares to Beyond Logprobs, Cleanlab TLM, conformal factuality, and the commercial IDP stack
-- [Framework integrations](docs/INTEGRATIONS.md) — Instructor / Pydantic / LangChain drop-in
+- [MCP for agents](docs/MCP.md) — client config + the registry publish runbook
 - [GPU runbook](docs/REAL_MODELS.md) — reproduce the real-extractor rows
 - [USP audit](docs/USP.md) · [Full spec](PROJECT.md)
 

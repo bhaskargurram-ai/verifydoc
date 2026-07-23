@@ -43,6 +43,7 @@ nav:
       - Quickstart: QUICKSTART_INTEGRATIONS.md
       - MCP (agents/IDEs): MCP.md
   - Self-host & bots: DEPLOY.md
+  - Hugging Face Space: HUGGINGFACE.md
   - Real models (GPU): REAL_MODELS.md
   - Repo automation: AUTOMATION.md
   - Why VerifyDoc: USP.md
