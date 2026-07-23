@@ -184,8 +184,23 @@ def run_benchmark(cfg: dict[str, Any], out_dir: str | Path) -> dict[str, Any]:
         from benchmark.datasets import sroie
 
         bench = sroie.load(split=cfg.get("split", "test"), limit=cfg.get("limit", 100))
+    elif dataset == "xfund":
+        from benchmark.datasets import xfund
+
+        bench = xfund.load(
+            lang=cfg.get("lang", "de"),
+            split=cfg.get("split", "val"),
+            limit=cfg.get("limit"),
+        )
+    elif dataset == "docile":
+        from benchmark.datasets import docile
+
+        bench = docile.load(split=cfg.get("split", "val"), limit=cfg.get("limit", 100))
     else:
-        raise ValueError(f"unknown dataset {dataset!r} (available: synthetic, cord, funsd, sroie)")
+        raise ValueError(
+            f"unknown dataset {dataset!r} "
+            "(available: synthetic, cord, funsd, sroie, xfund, docile)"
+        )
     extractor = cfg.get("extractor", "mock")
     if extractor == "mock":
         adapter: Any = MockAdapter(
