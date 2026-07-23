@@ -34,5 +34,14 @@ document-reading agents.
 python examples/agents/auto_repair.py
 ```
 
+- **`ensemble_adjudication.py`** — `verifydoc.agents.ensemble_verify`: run several
+  different extractors (OCR / VLM / API) and **adjudicate per field**. Where they
+  agree, confidence rises; where they disagree, the best-grounded reading wins and
+  the dissent is recorded — genuine splits stay `review`.
+
+```bash
+python examples/agents/ensemble_adjudication.py
+```
+
 CrewAI and OpenAI-Agents variants of the same trust gate are welcome — the
 routing policy in `langgraph_review.py` is framework-agnostic.
