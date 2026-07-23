@@ -10,7 +10,7 @@ infrastructure. Three surfaces share one backend:
 - **Messaging bots** — send a document to a **Telegram** or **WhatsApp** bot and
   get back the extracted fields with confidence + which ones need review.
 
-## One command (planned v1.0)
+## One command
 
 ```bash
 docker compose up          # backend + web UI on http://localhost:8000
@@ -18,6 +18,23 @@ docker compose up          # backend + web UI on http://localhost:8000
 pip install 'verifydoc[server]'
 verifydoc-server           # uvicorn app on :8000
 ```
+
+## Run the Telegram bot with no public URL
+
+Webhooks need a public HTTPS endpoint. To run the bot from a laptop or an
+air-gapped box with **no open port**, use long-polling instead:
+
+```bash
+pip install 'verifydoc[server]'
+export TELEGRAM_BOT_TOKEN=...            # from @BotFather
+# optional — use Claude to extract fields (else the local text-search baseline):
+export ANTHROPIC_API_KEY=...             # + pip install 'verifydoc[api]'
+verifydoc-bot                            # polls Telegram; message the bot a receipt/PDF
+```
+
+The bot extractor is chosen by `VERIFYDOC_BOT_ADAPTER` (defaults to `api-vlm`
+when an Anthropic key is present, else `text-search`). Set it to `rapidocr` for
+local OCR on images.
 
 ## Privacy model
 
@@ -32,7 +49,8 @@ verifydoc-server           # uvicorn app on :8000
 
 ## Status
 
-The library, CLI, MCP server, and Streamlit review UI ship today
-(`pip install verifydoc`). The FastAPI server, web app, Docker image, and
-Telegram/WhatsApp bots are the **v1.0 self-host release** — tracked in the
-project roadmap. This document is the design contract they implement.
+Shipping now (`pip install 'verifydoc[server]'`): the FastAPI server + REST API,
+the single-page web review UI, the Dockerfile/compose, the Telegram bot
+(webhook **and** polling via `verifydoc-bot`), and the WhatsApp Cloud API webhook.
+The library, CLI, MCP server, and Streamlit UI ship in the base package. A
+richer multi-reviewer web queue and native mobile app remain on the roadmap.

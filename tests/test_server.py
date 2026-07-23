@@ -11,13 +11,23 @@ pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient  # noqa: E402
 
 from verifydoc.server.app import build_app  # noqa: E402
+from verifydoc.server.poll import reply_for_message  # noqa: E402
 from verifydoc.server.webhooks import (  # noqa: E402
+    _bot_adapter,
     _iter_whatsapp_texts,
     format_verification_reply,
     handle_telegram_update,
+    verify_document_file,
     verify_document_text,
     verify_whatsapp_signature,
 )
+
+
+@pytest.fixture(autouse=True)
+def _force_local_extractor(monkeypatch):
+    """Keep bot-helper tests offline regardless of the developer's shell env."""
+    monkeypatch.setenv("VERIFYDOC_BOT_ADAPTER", "text-search")
+
 
 RECEIPT = "Corner Cafe\nDate: 2024-05-01\nTotal: 7.70\n"
 SCHEMA = {"type": "object", "properties": {"total": {"type": "number", "x-numeric-tol": 0.01}}}
@@ -125,3 +135,40 @@ class TestWebhookEndpoints:
             params={"hub.mode": "subscribe", "hub.verify_token": "wrong", "hub.challenge": "42"},
         )
         assert r.status_code == 403
+
+
+class TestBotExtractorSelection:
+    def test_default_is_local_text_search(self, monkeypatch):
+        monkeypatch.delenv("VERIFYDOC_BOT_ADAPTER", raising=False)
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        assert _bot_adapter() is None  # pipeline default = text-search (private)
+
+    def test_api_vlm_when_key_present(self, monkeypatch):
+        monkeypatch.delenv("VERIFYDOC_BOT_ADAPTER", raising=False)
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "dummy")
+        adapter = _bot_adapter()  # constructed only; no network until extract()
+        assert adapter is not None and adapter.name == "api-vlm"
+
+    def test_explicit_override(self, monkeypatch):
+        monkeypatch.setenv("VERIFYDOC_BOT_ADAPTER", "text-search")
+        assert _bot_adapter() is None
+
+    def test_verify_document_file(self, tmp_path):
+        p = tmp_path / "r.txt"
+        p.write_text(RECEIPT)
+        result = verify_document_file(str(p))
+        assert len(result.fields) >= 1  # text-search finds date/total in the receipt
+
+
+class TestReplyForMessage:
+    def test_text_message(self):
+        assert "Verified" in reply_for_message({"text": RECEIPT})
+
+    def test_document_with_injected_download(self, tmp_path):
+        p = tmp_path / "r.txt"
+        p.write_text(RECEIPT)
+        reply = reply_for_message({"document": {"file_id": "x"}}, download=lambda fid: str(p))
+        assert "Verified" in reply
+
+    def test_no_content_prompts_user(self):
+        assert "Send me" in reply_for_message({"sticker": {}})

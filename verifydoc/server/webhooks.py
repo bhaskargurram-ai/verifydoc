@@ -16,13 +16,16 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from verifydoc import verify
-from verifydoc.ingest import document_from_text
+from verifydoc.adapters import get_adapter
+from verifydoc.adapters.base import ExtractorAdapter
+from verifydoc.ingest import document_from_text, ingest_path
 from verifydoc.pipeline import VerifiedResult
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
@@ -60,9 +63,31 @@ def verify_whatsapp_signature(body: bytes, signature: str | None, app_secret: st
     return hmac.compare_digest(expected, signature or "")
 
 
+def _bot_adapter() -> ExtractorAdapter | None:
+    """Extractor for bot messages. ``VERIFYDOC_BOT_ADAPTER`` overrides; otherwise
+    use the Claude ``api-vlm`` extractor when an ``ANTHROPIC_API_KEY`` is present
+    (real field extraction), else the local ``text-search`` baseline (fully
+    private — nothing leaves the box). Returns ``None`` for the text-search
+    default (the pipeline's built-in)."""
+    name = os.environ.get("VERIFYDOC_BOT_ADAPTER") or (
+        "api-vlm" if os.environ.get("ANTHROPIC_API_KEY") else "text-search"
+    )
+    if name in ("", "text-search"):
+        return None
+    return get_adapter(name)
+
+
 def verify_document_text(text: str, schema: dict[str, Any] | None = None) -> VerifiedResult:
-    """Run the trust layer on a plain-text document (local text-search adapter)."""
-    return verify(document_from_text("bot", [text]), schema or DEFAULT_BOT_SCHEMA, threshold=0.8)
+    """Run the trust layer on a plain-text document with the configured extractor."""
+    doc = document_from_text("bot", [text])
+    return verify(doc, schema or DEFAULT_BOT_SCHEMA, adapter=_bot_adapter(), threshold=0.8)
+
+
+def verify_document_file(path: str | Path, schema: dict[str, Any] | None = None) -> VerifiedResult:
+    """Ingest a document file (PDF/image/text) and verify it — bot attachment path."""
+    return verify(
+        ingest_path(path), schema or DEFAULT_BOT_SCHEMA, adapter=_bot_adapter(), threshold=0.8
+    )
 
 
 def handle_telegram_update(update: dict[str, Any]) -> str | None:
