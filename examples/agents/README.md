@@ -8,9 +8,15 @@ calibrated confidence bar and are grounded to the source, and escalates the rest
   loop: `extract → grade (VerifyDoc) → accept / escalate / re-extract`. The
   escalate branch is where a LangGraph `interrupt()`, an OpenAI-Agents
   `needs_approval` tool, or a VerifyDoc review queue plugs in.
+- **`langgraph_review.py`** — the same loop as an actual LangGraph `StateGraph`:
+  `extract_and_verify → (conditional edge) → human_review → finalize`, where the
+  human step is a real `interrupt()`. The trust nodes are plain functions, so it
+  runs (and is tested) with **zero dependencies**; install `langgraph` to get the
+  interrupt-driven graph via `build_langgraph_app()`.
 
 ```bash
 python examples/agents/agent_review_loop.py
+python examples/agents/langgraph_review.py   # framework-free; uses LangGraph if installed
 ```
 
 **Why this matters:** an agent that reads a document and acts on a silently-wrong
@@ -18,5 +24,5 @@ value fails silently. VerifyDoc turns "the model said so" into an auditable
 accept/review decision with a source citation — the missing safety gate for
 document-reading agents.
 
-See issue [#29](https://github.com/bhaskargurram-ai/verifydoc/issues/29) for the
-full LangGraph/CrewAI integration (contributions welcome).
+CrewAI and OpenAI-Agents variants of the same trust gate are welcome — the
+routing policy in `langgraph_review.py` is framework-agnostic.
