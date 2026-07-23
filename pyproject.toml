@@ -66,6 +66,7 @@ dev = [
 verifydoc = "verifydoc.cli:app"
 verifydoc-mcp = "verifydoc.mcp_server:main"
 verifydoc-server = "verifydoc.server.app:main"
+verifydoc-bot = "verifydoc.server.poll:main"
 
 [project.urls]
 Homepage = "https://github.com/bhaskargurram-ai/verifydoc"
