@@ -87,7 +87,7 @@ def predict_coverage_gain(
         if a.size < 2 or b.size < 2:
             continue
         grouped = GroupConformalAbstention(alpha=alpha, group_of=group_of).fit(
-            [items[i] for i in a], y[a]
+            [items[i] for i in a], y[a].tolist()
         )
         pooled = ConformalAbstention(alpha=alpha).fit(conf[a].tolist(), y[a].tolist())
         g_cov = float(grouped.accept([items[i] for i in b]).mean())
@@ -124,7 +124,7 @@ def characterize(
             aurocs.append(float(roc_auc_score(y[mask], conf[mask])))
 
     separation = (max(errors.values()) - min(errors.values())) if errors else 0.0
-    gain = predict_coverage_gain(items, y, group_of, alpha, seed=seed)
+    gain = predict_coverage_gain(items, correct, group_of, alpha, seed=seed)
     return CharacterizationReport(
         predicted_gain=gain,
         error_separation=float(separation),
