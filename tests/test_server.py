@@ -75,6 +75,17 @@ class TestRestApi:
         assert "VerifyDoc" in r.text
         assert "review cockpit" in r.text and "Source" in r.text and "Export JSON" in r.text
 
+    def test_cors_allows_cross_origin(self, client):
+        # a static front-end (e.g. a Hugging Face static Space) must be able to
+        # call the API cross-origin
+        r = client.post(
+            "/verify",
+            json={"document": RECEIPT, "schema": SCHEMA},
+            headers={"Origin": "https://bhaskar1225-verifydoc.static.hf.space"},
+        )
+        assert r.status_code == 200
+        assert r.headers.get("access-control-allow-origin") == "*"
+
 
 class TestWebhookHelpers:
     def test_verify_document_text(self):

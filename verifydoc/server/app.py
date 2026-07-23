@@ -80,6 +80,23 @@ def build_app() -> FastAPI:
         description="Trust layer for document -> structured-JSON extraction.",
     )
 
+    # CORS so a static front-end (e.g. a Hugging Face static Space) can call this
+    # API cross-origin. The demo uses no cookies/credentials — only a per-request
+    # BYO key in the body — so a wildcard origin is safe. Override the allow-list
+    # with VERIFYDOC_CORS_ORIGINS (comma-separated) to lock it down.
+    from fastapi.middleware.cors import CORSMiddleware
+
+    origins_env = os.environ.get("VERIFYDOC_CORS_ORIGINS", "*").strip()
+    allow_origins = (
+        ["*"] if origins_env == "*" else [o.strip() for o in origins_env.split(",") if o.strip()]
+    )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allow_origins,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok", "version": __version__}
