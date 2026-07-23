@@ -33,14 +33,19 @@
 </style></head><body>
 <header>
  <h1>🔒 VerifyDoc</h1>
- <div class="sum" id="summary">Verify a document to start reviewing.</div>
+ <div class="sum" id="summary">▶ Click <b>Verify</b> to try the sample, or upload your own PDF. Local extraction is free; for the Claude model, paste your own key (never stored).</div>
  <div class="grow"></div>
  <button class="ghost" onclick="exportJSON()">Export JSON</button>
 </header>
 <div class="controls">
  <div><label>Upload PDF/image</label><input type="file" id="file"></div>
- <div><label>…or paste document text</label><textarea id="text" placeholder="Invoice #: INV-9&#10;Total: $1,234.50"></textarea></div>
- <div class="schema"><label>Schema (JSON)</label><textarea id="schema">{"type":"object","properties":{"total":{"type":"number","x-numeric-tol":0.01}}}</textarea></div>
+ <div><label>…or paste document text</label><textarea id="text" placeholder="paste a receipt/invoice">ACME Supplies Ltd
+Invoice #: INV-2024-0912
+Date: 2024-03-04
+Subtotal: 1,100.00
+Tax: 134.50
+Total: $1,234.50</textarea></div>
+ <div class="schema"><label>Schema (JSON)</label><textarea id="schema">{"type":"object","properties":{"invoice_id":{"type":"string"},"vendor":{"type":"string","x-scoring":"semantic"},"date":{"type":"string"},"total":{"type":"number","x-numeric-tol":0.01}}}</textarea></div>
  <div><label>Adapter</label><br><select id="adapter"><option>text-search</option><option>rapidocr</option><option>api-vlm</option><option>hf-vlm</option></select></div>
  <div><label>Threshold</label><br><input id="threshold" type="number" value="0.8" step="0.05" min="0" max="1" style="width:80px"></div>
  <div><label>Anthropic key (optional · for api-vlm)</label><br><input id="apikey" type="password" placeholder="sk-ant-… used only for this request" autocomplete="off" style="width:250px"></div>
