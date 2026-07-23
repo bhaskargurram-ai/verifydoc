@@ -6,7 +6,11 @@ import numpy as np
 import pytest
 
 from benchmark.datasets import synthetic
-from verifydoc.eval.harness import grouped_conformal_rows, run_benchmark
+from verifydoc.eval.harness import (
+    grouped_conformal_rows,
+    grouping_ablation_rows,
+    run_benchmark,
+)
 from verifydoc.types import FieldPrediction, Grounding
 
 TINY_CFG = {
@@ -56,6 +60,7 @@ class TestHarness:
             "conformal.md",
             "grounding.md",
             "grouped_conformal.md",
+            "grouping_ablation.md",
         ):
             content = (tmp_path / table).read_text(encoding="utf-8")
             assert content.startswith("#") and "|" in content
@@ -126,3 +131,24 @@ class TestGroupedConformalRows:
 
     def test_empty_input_returns_no_rows(self):
         assert grouped_conformal_rows(([], [], []), set(), set(), [0.05]) == []
+
+
+class TestGroupingAblationRows:
+    def test_covers_all_taxonomies_plus_selected(self):
+        rng = np.random.default_rng(1)
+        cal_ids, cal_p, cal_y = TestGroupedConformalRows._population(rng, 500, "cal")
+        test_ids, test_p, test_y = TestGroupedConformalRows._population(rng, 500, "test")
+        grouped = (cal_ids + test_ids, cal_p + test_p, cal_y + test_y)
+        rows = grouping_ablation_rows(grouped, set(cal_ids), set(test_ids), [0.10])
+        taxonomies = {r["taxonomy"] for r in rows}
+        assert "marginal(pooled)" in taxonomies
+        assert "grounded" in taxonomies and "value_length" in taxonomies
+        assert any(t.startswith("selected:") for t in taxonomies)
+        # the pooled row has zero gain by definition
+        pooled = next(r for r in rows if r["taxonomy"] == "marginal(pooled)")
+        assert pooled["gain_vs_pooled"] == 0.0
+        # at least one taxonomy beats pooled on this reliable-grounded population
+        assert max(r["gain_vs_pooled"] for r in rows) > 0.0
+
+    def test_too_little_data_returns_no_rows(self):
+        assert grouping_ablation_rows(([], [], []), set(), set(), [0.05]) == []

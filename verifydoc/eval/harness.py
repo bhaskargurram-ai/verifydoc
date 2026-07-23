@@ -18,14 +18,17 @@ import numpy as np
 
 from verifydoc.adapters.mock import MockAdapter
 from verifydoc.calibration import (
+    GROUP_TAXONOMIES,
     Calibrator,
     ConformalAbstention,
     GroupConformalAbstention,
+    GroupPartitionSelector,
     HistogramBinning,
     IsotonicCalibrator,
     PlattScaling,
     TemperatureScaling,
     assert_disjoint,
+    characterize,
     grounded_group,
     split_calibration,
 )
@@ -321,8 +324,16 @@ def run_benchmark(cfg: dict[str, Any], out_dir: str | Path) -> dict[str, Any]:
     assert len(pairwise_ious(pred_boxes, gold_boxes)) == len(box_corr)
 
     grouped_rows = grouped_conformal_rows(pooled["grouped"], cal_set, test_set, alphas)
+    ablation_rows = grouping_ablation_rows(pooled["grouped"], cal_set, test_set, alphas)
     _write_tables(
-        out, extraction_row, calib_rows, select_rows, conformal_rows, grounding_row, grouped_rows
+        out,
+        extraction_row,
+        calib_rows,
+        select_rows,
+        conformal_rows,
+        grounding_row,
+        grouped_rows,
+        ablation_rows,
     )
     _write_figures(out, figures, signals, cal_set, test_set)
 
@@ -340,6 +351,21 @@ def run_benchmark(cfg: dict[str, Any], out_dir: str | Path) -> dict[str, Any]:
     grouped_gains = [r for r in grouped_rows if r["method"] == "grounded-group"]
     if grouped_gains:
         summary["grouped_conformal"] = max(grouped_gains, key=lambda r: float(r["coverage_gain"]))
+    if ablation_rows:
+        summary["best_taxonomy"] = max(ablation_rows, key=lambda r: float(r["gain_vs_pooled"]))
+    # the calibration-split predictor of when grouping helps (paper diagnostic)
+    g_ids, g_preds, g_corr = pooled["grouped"]
+    cal_g = [(p, y) for d, p, y in zip(g_ids, g_preds, g_corr) if d in cal_set]
+    if len(cal_g) >= 4:
+        report = characterize(
+            [p for p, _ in cal_g], [y for _, y in cal_g], grounded_group, alpha=alphas[0]
+        )
+        summary["characterization"] = {
+            "predicted_gain": report.predicted_gain,
+            "error_separation": report.error_separation,
+            "within_group_auroc": report.within_group_auroc,
+            "recommend_grouped": report.recommend,
+        }
     return summary
 
 
@@ -410,6 +436,81 @@ def grouped_conformal_rows(
     return rows
 
 
+def grouping_ablation_rows(
+    grouped: tuple[list[str], list[FieldPrediction], list[int]],
+    cal_set: set[str],
+    test_set: set[str],
+    alphas: Sequence[float],
+) -> list[dict[str, Any]]:
+    """Coverage at each risk target for EVERY provenance taxonomy vs pooled.
+
+    The paper's grouping ablation: which partition (grounded, support-bin,
+    value-length, field-type, cross-products) best recovers coverage, plus the
+    calibration-split-*selected* partition (:class:`GroupPartitionSelector`,
+    validity-preserving via a select/fit sub-split). All fit on calibration only.
+    """
+    g_ids, g_preds, g_corr = grouped
+    cal_preds = [p for d, p in zip(g_ids, g_preds) if d in cal_set]
+    cal_y = [y for d, y in zip(g_ids, g_corr) if d in cal_set]
+    test_preds = [p for d, p in zip(g_ids, g_preds) if d in test_set]
+    test_y = np.asarray([y for d, y in zip(g_ids, g_corr) if d in test_set], dtype=float)
+    rows: list[dict[str, Any]] = []
+    if len(cal_preds) < 4 or test_y.size == 0:
+        return rows
+    cal_conf = [p.confidence for p in cal_preds]
+    test_conf = [p.confidence for p in test_preds]
+
+    def _cov_risk(mask: np.ndarray) -> tuple[float, float]:
+        return (
+            float(mask.mean()),
+            float(1.0 - test_y[mask].mean()) if mask.any() else 0.0,
+        )
+
+    for alpha in alphas:
+        marginal = ConformalAbstention(alpha=alpha).fit(cal_conf, cal_y)
+        m_cov, m_risk = _cov_risk(marginal.accept(test_conf))
+        rows.append(
+            {
+                "taxonomy": "marginal(pooled)",
+                "alpha": alpha,
+                "coverage": m_cov,
+                "achieved_risk": m_risk,
+                "guarantee_held": m_risk <= alpha + 1e-9,
+                "gain_vs_pooled": 0.0,
+            }
+        )
+        for name, fn in GROUP_TAXONOMIES.items():
+            policy = GroupConformalAbstention(alpha=alpha, group_of=fn).fit(cal_preds, cal_y)
+            cov, risk = _cov_risk(policy.accept(test_preds))
+            rows.append(
+                {
+                    "taxonomy": name,
+                    "alpha": alpha,
+                    "coverage": cov,
+                    "achieved_risk": risk,
+                    "guarantee_held": risk <= alpha + 1e-9,
+                    "gain_vs_pooled": cov - m_cov,
+                }
+            )
+        half = len(cal_preds) // 2
+        if half >= 2:
+            selector = GroupPartitionSelector(alpha=alpha).fit(
+                cal_preds[:half], cal_y[:half], cal_preds[half:], cal_y[half:]
+            )
+            cov, risk = _cov_risk(selector.accept(test_preds))
+            rows.append(
+                {
+                    "taxonomy": f"selected:{selector.selected_}",
+                    "alpha": alpha,
+                    "coverage": cov,
+                    "achieved_risk": risk,
+                    "guarantee_held": risk <= alpha + 1e-9,
+                    "gain_vs_pooled": cov - m_cov,
+                }
+            )
+    return rows
+
+
 def _fmt(value: Any) -> str:
     return f"{value:.4f}" if isinstance(value, float) else str(value)
 
@@ -429,6 +530,7 @@ def _write_tables(
     conformal: list[dict[str, Any]],
     grounding: dict[str, Any],
     grouped: list[dict[str, Any]],
+    ablation: list[dict[str, Any]] | None = None,
 ) -> None:
     (out / "extraction.md").write_text(
         "# Extraction quality (single-run baseline)\n\n" + _table([extraction]),
@@ -457,6 +559,15 @@ def _write_tables(
             "applying a lower confidence bar to grounded fields and a stricter bar to "
             "ungrounded ones. `coverage_gain` is grounded-group coverage minus marginal.\n\n"
             + _table(grouped),
+            encoding="utf-8",
+        )
+    if ablation:
+        (out / "grouping_ablation.md").write_text(
+            "# Provenance-taxonomy ablation (coverage @ risk vs pooled conformal)\n\n"
+            "Coverage each grouping taxonomy achieves at the target risk, plus the "
+            "calibration-split-selected partition. `gain_vs_pooled` is coverage minus "
+            "marginal (pooled) conformal at the same alpha — the effect of conditioning "
+            "on that provenance taxonomy.\n\n" + _table(ablation),
             encoding="utf-8",
         )
 
