@@ -131,6 +131,7 @@ VerifyDoc doesn't replace your parser — it adds the trust layer none of them s
 | **Calibrators** (fit on a dedicated split, never test) | temperature · Platt · isotonic · histogram · **split conformal** · **grounding-conditioned (Mondrian) conformal** (novel — recovers coverage a pooled threshold forfeits) | ✅ |
 | **Grounding** | value → page/bbox/char-span attachment with support scores | ✅ |
 | **Policy** | empirical & conformal accept thresholds for a target selective risk | ✅ |
+| **Agents** (trust-gated loops) | `agentic_verify`: extract → verify → **repair** review fields through lazy escalating tiers → **escalate** the residue to a human; reports `n_extract_calls` so cost scales with difficulty | ✅ |
 | **Eval harness / VerifyDocBench scorer** | Field-F1 · exact · CER/WER · ANLS · TEDS/TEDS-Struct · GriTS · omission vs hallucination · ECE/Adaptive-ECE/MCE/Brier/NLL/TCE · RC/AURC/E-AURC/Coverage@Risk/AUROC/AUPR/FPR@95 · box IoU/span-F1/grounding-conditioned correctness · bootstrap CIs + paired tests | ✅ |
 
 Every metric implements the exact definition in [PROJECT.md §5](PROJECT.md) with a hand-computed numeric regression test (382 tests, `eval/` coverage 97%).
