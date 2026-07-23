@@ -60,6 +60,7 @@ for f in result.fields:
 
 ```bash
 verifydoc extract examples/invoice.txt --schema examples/invoice_schema.json --threshold 0.8
+verifydoc batch ./invoices --schema schema.json -o out/   # whole folder → one JSON/doc + summary.json
 streamlit run ui/streamlit_app.py     # review UI: green/red fields + click-through to source
 ```
 
