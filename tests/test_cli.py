@@ -56,6 +56,54 @@ class TestExtract:
         assert result.exit_code != 0
 
 
+class TestBatch:
+    def _folder(self, tmp_path):
+        d = tmp_path / "docs"
+        d.mkdir()
+        (d / "a.txt").write_text(DOC, encoding="utf-8")
+        (d / "b.txt").write_text("Bistro\nTotal: 12.00\n", encoding="utf-8")
+        schema = tmp_path / "schema.json"
+        schema.write_text(json.dumps(SCHEMA), encoding="utf-8")
+        return d, schema
+
+    def test_writes_one_json_per_doc_plus_summary(self, tmp_path):
+        d, schema = self._folder(tmp_path)
+        out = tmp_path / "out"
+        result = runner.invoke(app, ["batch", str(d), "-s", str(schema), "-o", str(out)])
+        assert result.exit_code == 0
+        assert (out / "a.json").exists() and (out / "b.json").exists()
+        summary = json.loads((out / "summary.json").read_text(encoding="utf-8"))
+        assert summary["n_docs"] == 2
+        assert {r["file"] for r in summary["documents"]} == {"a.txt", "b.txt"}
+        assert summary["total_accepted"] + summary["total_review"] >= 2
+        assert "2 docs" in result.output
+
+    def test_per_doc_json_is_a_verified_result(self, tmp_path):
+        d, schema = self._folder(tmp_path)
+        out = tmp_path / "out"
+        runner.invoke(app, ["batch", str(d), "-s", str(schema), "-o", str(out)])
+        data = json.loads((out / "a.json").read_text(encoding="utf-8"))
+        assert "fields" in data and "n_accepted" in data
+
+    def test_glob_filters_files(self, tmp_path):
+        d, schema = self._folder(tmp_path)
+        (d / "notes.md").write_text("ignore me", encoding="utf-8")
+        out = tmp_path / "out"
+        result = runner.invoke(
+            app, ["batch", str(d), "-s", str(schema), "-o", str(out), "--glob", "*.txt"]
+        )
+        assert result.exit_code == 0
+        assert not (out / "notes.json").exists()
+        assert json.loads((out / "summary.json").read_text())["n_docs"] == 2
+
+    def test_empty_folder_exits_nonzero(self, tmp_path):
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        _, schema = self._folder(tmp_path)
+        result = runner.invoke(app, ["batch", str(empty), "-s", str(schema)])
+        assert result.exit_code != 0
+
+
 class TestIaa:
     def test_reports_kappa(self, tmp_path):
         a = tmp_path / "a.json"
