@@ -2,7 +2,33 @@
 
 ## Unreleased
 
-Agentic app, local private extraction, and top-repo polish.
+_Nothing yet._
+
+## v0.10.0 — 2026-07-23
+
+Live demo, agentic app, scoring/confidence upgrades, and a Hugging Face Space.
+
+- **Hugging Face Space** (`spaces/huggingface/`, Gradio): a live, no-install trust
+  demo — paste a doc + schema, get fields with confidence + grounding +
+  accept/review; local extraction free, Claude bring-your-own-key.
+- **Hosted demo live** at <https://verifydoc-demo.web.app> (Cloud Run + Firebase),
+  with a one-click sample invoice in the review cockpit and per-request
+  bring-your-own-key (no shared API key). (#33)
+- **`verifydoc batch <dir>`**: verify a whole folder against one schema → one JSON
+  per doc + a `summary.json` of accepted/review counts. (#31)
+- **Adaptive-k consensus** (`adaptive_consensus`): resample only near-threshold
+  fields under a budget; single-pass fast path. (#15)
+- **Entailment-based grounding** (`confidence/entailment.py`): a pluggable NLI
+  scorer verifies the grounded span entails "field = value", folding entailment
+  into `grounding.support` to catch lexically-present-but-wrong values. (#16)
+- **Array-leaf alignment** (`score_fields(align_arrays=True)`): greedy best-match
+  alignment of array items so reordered line-items aren't mis-scored. (#5)
+- **LangGraph review agent** (`examples/agents/langgraph_review.py`): a real
+  `StateGraph` that auto-accepts confident fields and routes the rest to a human
+  `interrupt()`; runs framework-free too. (#29)
+- **MCP registry publish runbook** (`docs/MCP.md`) for the validated `server.json`. (#34)
+
+## v0.9.x internal — agentic app, local private extraction, repo polish
 
 - **Local HF-model adapter** (`hf-vlm`): fully-private extraction via a local
   transformers model — no API, nothing leaves the machine. (#41)

@@ -1,0 +1,4 @@
+# VerifyDoc Hugging Face Space dependencies.
+# Pin verifydoc to the released version for reproducible Space builds.
+verifydoc[pdf,ocr,api]>=0.10.0
+gradio>=4.44
