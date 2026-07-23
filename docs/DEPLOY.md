@@ -36,6 +36,39 @@ The bot extractor is chosen by `VERIFYDOC_BOT_ADAPTER` (defaults to `api-vlm`
 when an Anthropic key is present, else `text-search`). Set it to `rapidocr` for
 local OCR on images.
 
+## Deployment options
+
+Pick by privacy needs and whether you need inbound webhooks. Every option runs
+the same image/app; **local adapters keep documents on the box**, while `api-vlm`
+or the WhatsApp Cloud API send content to a third party.
+
+| Where | How | Best for | Privacy |
+|---|---|---|---|
+| Laptop / on-prem | `pip install 'verifydoc[server]'` → `verifydoc-server` | dev, sensitive docs | 100% local |
+| Docker, one box | `docker run -p 8000:8000 ghcr.io/bhaskargurram-ai/verifydoc` · `docker compose up` | simple self-host | 100% local |
+| Bot, no public URL | `verifydoc-bot` (Telegram long-poll) | quick bot behind NAT/firewall | local (media via Telegram) |
+| Serverless containers | Cloud Run / AWS App Runner / Azure Container Apps — run the ghcr image | REST API + webhooks, scale-to-zero, free HTTPS | your cloud |
+| PaaS one-click | Fly.io / Render / Railway (build from the Dockerfile) | fastest cloud deploy | your account |
+| Cloud VM | EC2/GCE/Hetzner + Docker + Caddy or a Cloudflare Tunnel for HTTPS | full control | your infra |
+| HF Spaces / Streamlit Cloud | the Streamlit UI as a public demo | showcase only — not private docs | public |
+| GPU box | any 24 GB GPU VM (RunPod/Lambda/vast/cloud) + the image | local `hf-vlm` / PaddleOCR extraction | local |
+
+Notes:
+
+- **Webhooks (WhatsApp, Telegram-webhook) need a public HTTPS endpoint.**
+  Serverless/PaaS give you one for free; on a VM use Caddy or a Cloudflare
+  Tunnel. The **Telegram polling** runner (`verifydoc-bot`) needs no inbound
+  connection at all.
+- **Config via env vars** (all optional): `VERIFYDOC_HOST`/`VERIFYDOC_PORT`,
+  `VERIFYDOC_BOT_ADAPTER`, `ANTHROPIC_API_KEY`/`OPENAI_API_KEY`, and the
+  Telegram/WhatsApp tokens (see below). Never bake secrets into the image —
+  pass them at run time.
+- **GPU** is only needed for the local VLM/heavy-OCR adapters (`hf-vlm`,
+  `paddleocr-vl`); a single 24 GB card is enough. The default `text-search` /
+  `rapidocr` adapters run on CPU.
+- **Recommendation:** private teams → Docker/Compose on your own VM or GPU box;
+  public demo → a Hugging Face Space; low-ops API + bot → Cloud Run.
+
 ## Privacy model
 
 - With a **local** adapter (`text-search`, `rapidocr`, a local HF VLM) the
