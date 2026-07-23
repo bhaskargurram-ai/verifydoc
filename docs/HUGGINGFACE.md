@@ -24,12 +24,27 @@ python scripts/build_hf_static.py           # writes spaces/huggingface-static/i
 ```bash
 pip install -U huggingface_hub
 hf auth login                               # write token from hf.co/settings/tokens
+
+# create the Space explicitly as STATIC (free) — this avoids the CLI defaulting
+# to a Gradio Space, which needs PRO (HTTP 402):
+hf repo create bhaskar1225/verifydoc --repo-type space --space-sdk static -y
+
+# then upload the static Space contents (index.html + README.md):
 hf upload bhaskar1225/verifydoc spaces/huggingface-static . \
   --repo-type space --commit-message "Deploy VerifyDoc demo"
 ```
 
-`hf upload` reads `spaces/huggingface-static/README.md` (`sdk: static`) and
-creates a free static Space, then rebuilds on every upload.
+If your `hf` CLI version doesn't accept `--space-sdk`, use the Python API, which
+always does:
+
+```python
+from huggingface_hub import create_repo, upload_folder
+create_repo("bhaskar1225/verifydoc", repo_type="space", space_sdk="static", exist_ok=True)
+upload_folder(repo_id="bhaskar1225/verifydoc", repo_type="space",
+              folder_path="spaces/huggingface-static")
+```
+
+The Space rebuilds on every upload; `README.md` (`sdk: static`) keeps it free.
 
 > The static page calls the hosted API cross-origin, which the backend allows
 > via CORS (`VERIFYDOC_CORS_ORIGINS`, default `*` for the public demo). Point it
