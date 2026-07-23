@@ -69,6 +69,39 @@ Notes:
 - **Recommendation:** private teams → Docker/Compose on your own VM or GPU box;
   public demo → a Hugging Face Space; low-ops API + bot → Cloud Run.
 
+## Hosted demo (Cloud Run + Firebase Hosting)
+
+Run a public demo on **GCP Cloud Run** (which runs the container), optionally
+fronted by **Firebase Hosting** for a `*.web.app` URL. Firebase Hosting *alone*
+cannot run the Python server — it serves static files and rewrites `**` to the
+Cloud Run service (see `firebase.json`).
+
+Deploy it (needs a GCP project with billing + `gcloud`/`firebase` CLIs logged in):
+
+```bash
+# 1. deploy the container to Cloud Run (builds from the Dockerfile)
+gcloud run deploy verifydoc --source . --region us-central1 \
+  --allow-unauthenticated --set-env-vars VERIFYDOC_DEMO=1
+
+# 2. (optional) front it with Firebase Hosting for a web.app URL
+#    edit .firebaserc -> your project id (region in firebase.json must match), then:
+firebase deploy --only hosting
+```
+
+Cloud Run injects `$PORT`, which the server honors. Step 1 alone gives a working
+`https://verifydoc-….run.app`; step 2 maps it under `yourproject.web.app`.
+
+**Demo safety:** deploy with `VERIFYDOC_DEMO=1` and **no API keys**. That
+restricts extraction to local, keyless adapters (`text-search`, `rapidocr`), so a
+public instance can't be driven to a paid API or made to send documents off-box.
+
+**Hands-off CI/CD:** add a GCP service-account key + project id as GitHub secrets
+and wire a `workflow_dispatch` job (`google-github-actions/deploy-cloudrun` +
+`FirebaseExtended/action-hosting-deploy`).
+
+**Simplest non-GCP demo:** push the same image to a **Hugging Face Space**
+(Docker SDK) — a public URL with no cloud account beyond HF.
+
 ## Privacy model
 
 - With a **local** adapter (`text-search`, `rapidocr`, a local HF VLM) the
