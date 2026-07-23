@@ -18,6 +18,7 @@ _REGISTRY = {
     "dots-ocr": "verifydoc.adapters.dots_ocr:DotsOCRAdapter",
     "docling": "verifydoc.adapters.docling:DoclingAdapter",
     "api-vlm": "verifydoc.adapters.api_vlm:APIVLMAdapter",
+    "hf-vlm": "verifydoc.adapters.hf_vlm:HFVLMAdapter",
 }
 
 
