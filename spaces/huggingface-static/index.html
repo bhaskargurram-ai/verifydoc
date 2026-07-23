@@ -16,7 +16,12 @@
  .controls label{display:block;font-size:12px;color:var(--mut);margin-bottom:3px}
  input,textarea,select{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:7px;font:inherit}
  textarea{min-height:52px;width:320px} .controls .schema textarea{width:360px}
- main{display:grid;grid-template-columns:minmax(360px,1fr) minmax(360px,1fr);gap:0;height:calc(100vh - 118px)}
+ .queue{display:flex;gap:8px;overflow-x:auto;padding:10px 18px;border-bottom:1px solid var(--line)}
+ .queue:empty{display:none}
+ .qchip{white-space:nowrap;padding:6px 11px;background:var(--card);border:1px solid var(--line);border-radius:16px;font-size:12px;cursor:pointer;color:var(--fg)}
+ .qchip.done{border-color:var(--ok)} .qchip.error{border-color:var(--rev)} .qchip.running{border-color:var(--done)}
+ .qchip.sel{outline:2px solid var(--done)}
+ main{display:grid;grid-template-columns:minmax(360px,1fr) minmax(360px,1fr);gap:0;height:calc(100vh - 172px)}
  .pane{overflow:auto;padding:14px} .pane.left{border-right:1px solid var(--line)}
  h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin:0 0 10px}
  .field{padding:9px 11px;margin:7px 0;background:var(--card);border-left:4px solid var(--mut);border-radius:6px;cursor:pointer}
@@ -34,12 +39,13 @@
 </style></head><body>
 <header>
  <h1>🔒 VerifyDoc</h1>
- <div class="sum" id="summary">▶ Click <b>Verify</b> to try the sample, or upload your own PDF. Local extraction is free; for the Claude model, paste your own key (never stored).</div>
+ <div class="sum" id="summary">▶ Click <b>Verify</b> to try the sample, or upload one or many PDFs. Local extraction is free; for the Claude model, paste your own key (never stored).</div>
  <div class="grow"></div>
  <button class="ghost" onclick="exportJSON()">Export JSON</button>
+ <button class="ghost" onclick="clearQueue()">Clear queue</button>
 </header>
 <div class="controls">
- <div><label>Upload PDF/image</label><input type="file" id="file"></div>
+ <div><label>Upload PDF/image (one or many)</label><input type="file" id="file" multiple></div>
  <div><label>…or paste document text</label><textarea id="text" placeholder="paste a receipt/invoice">ACME Supplies Ltd
 Invoice #: INV-2024-0912
 Date: 2024-03-04
@@ -52,13 +58,20 @@ Total: $1,234.50</textarea></div>
  <div><label>Anthropic key (optional · for api-vlm)</label><br><input id="apikey" type="password" placeholder="sk-ant-… used only for this request" autocomplete="off" style="width:250px"></div>
  <div><button onclick="run()">Verify</button></div>
 </div>
+<div class="queue" id="queue"></div>
 <main>
  <div class="pane left"><h2>Fields — ⚠️ review need a human (Tab to move · Enter to confirm)</h2><div id="fields"></div></div>
  <div class="pane right"><h2>Source</h2><div id="source" class="src">—</div></div>
 </main>
 <script>
 const API_BASE = "https://verifydoc-966512405851.us-central1.run.app";
-let STATE = {fields: [], text: "", sel: -1};
+// A queue of documents; each job carries its own verified fields + review state.
+// Review progress persists in localStorage so a refresh never loses work (#28).
+const LS_KEY = "verifydoc.queue.v1";
+let STATE = {queue: [], cur: -1};
+const PENDING_FILES = {};   // job.id -> File (transient; not persisted across reloads)
+let _seq = 0;
+function uid(){ return "j" + Date.now().toString(36) + (_seq++); }
 
 function flatten(nested){
  const out=[];
@@ -68,67 +81,122 @@ function flatten(nested){
  return out;
 }
 
-async function run(){
- const src=document.getElementById("source"); src.classList.remove("err"); src.textContent="Verifying…";
- const schema=document.getElementById("schema").value;
- const adapter=document.getElementById("adapter").value;
- const threshold=parseFloat(document.getElementById("threshold").value);
- const file=document.getElementById("file").files[0];
+function firstLine(t){ const l=(t.split("\n").find(x=>x.trim())||"document").trim(); return l.length>28?l.slice(0,28)+"…":l; }
+function activeJob(){ return STATE.cur>=0 ? STATE.queue[STATE.cur] : null; }
+
+function addJobsFromInputs(){
+ const files=document.getElementById("file").files;
  const text=document.getElementById("text").value;
- const apikey=document.getElementById("apikey").value.trim();
- try{
-  let res;
-  if(file){
-   const fd=new FormData(); fd.append("file",file); fd.append("schema",schema);
-   fd.append("adapter",adapter); fd.append("threshold",threshold);
-   if(apikey)fd.append("api_key",apikey);
-   res=await fetch(API_BASE+"/verify/upload",{method:"POST",body:fd});
-  }else{
-   res=await fetch(API_BASE+"/verify",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({document:text,schema:JSON.parse(schema),adapter,threshold,api_key:apikey||null})});
+ let added=0;
+ if(files&&files.length){
+  for(const f of files){
+   const id=uid(); PENDING_FILES[id]=f;
+   STATE.queue.push({id,name:f.name,kind:"file",text:"",status:"pending",fields:[],sel:-1,error:null});
+   added++;
   }
-  if(!res.ok){src.classList.add("err");src.textContent=await res.text();return;}
-  const data=await res.json();
-  STATE={fields:flatten(data.fields),text:file?"":text,sel:-1};
-  render();
- }catch(e){src.classList.add("err");src.textContent=String(e);}
+  document.getElementById("file").value="";
+ }
+ if(text&&text.trim()){
+  const id=uid();
+  STATE.queue.push({id,name:firstLine(text),kind:"text",text,status:"pending",fields:[],sel:-1,error:null});
+  added++;
+ }
+ return added;
+}
+
+async function verifyJob(job,opts){
+ let res;
+ if(job.kind==="file"){
+  const f=PENDING_FILES[job.id];
+  if(!f) throw new Error("file not available (reload dropped it) — re-add it");
+  const fd=new FormData(); fd.append("file",f); fd.append("schema",opts.schema);
+  fd.append("adapter",opts.adapter); fd.append("threshold",opts.threshold);
+  if(opts.apikey)fd.append("api_key",opts.apikey);
+  res=await fetch(API_BASE+"/verify/upload",{method:"POST",body:fd});
+ }else{
+  res=await fetch(API_BASE+"/verify",{method:"POST",headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({document:job.text,schema:JSON.parse(opts.schema),adapter:opts.adapter,threshold:opts.threshold,api_key:opts.apikey||null})});
+ }
+ if(!res.ok) throw new Error(await res.text());
+ const data=await res.json();
+ job.fields=flatten(data.fields); job.error=null;
+}
+
+async function run(){
+ addJobsFromInputs(); persist(); render();
+ const opts={schema:document.getElementById("schema").value,adapter:document.getElementById("adapter").value,
+             threshold:parseFloat(document.getElementById("threshold").value),apikey:document.getElementById("apikey").value.trim()};
+ for(let i=0;i<STATE.queue.length;i++){
+  const job=STATE.queue[i];
+  if(job.status!=="pending"&&job.status!=="error")continue;
+  if(job.kind==="file"&&!PENDING_FILES[job.id])continue;   // can't re-run a dropped file
+  job.status="running"; if(STATE.cur<0)STATE.cur=i; render();
+  try{ await verifyJob(job,opts); job.status="done"; }
+  catch(e){ job.status="error"; job.error=String(e); }
+  persist(); render();
+ }
+ if(STATE.cur<0&&STATE.queue.length)STATE.cur=0;
+ render();
 }
 
 function cls(f){return f.reviewed?"done":f.decision;}
 
-function render(){
- const F=STATE.fields;
- const nAcc=F.filter(f=>f.decision==="accept").length, nRev=F.filter(f=>f.decision==="review").length;
- const done=F.filter(f=>f.reviewed).length;
+function render(){ renderSummary(); renderQueue(); renderActive(); }
+
+function renderSummary(){
+ const q=STATE.queue;
+ if(!q.length){document.getElementById("summary").innerHTML=
+   "▶ Add documents (upload one or many, or paste text) and click <b>Verify</b>. Local extraction is free; for the Claude model, paste your own key (never stored).";return;}
+ let nF=0,nAcc=0,nRev=0,done=0;
+ for(const j of q){ if(j.status==="done"){done++; nF+=j.fields.length;
+   nAcc+=j.fields.filter(f=>f.decision==="accept").length; nRev+=j.fields.filter(f=>f.decision==="review").length; } }
  document.getElementById("summary").textContent=
-   `${F.length} fields · ${nAcc} auto-accepted · ${nRev} to review · ${done} confirmed · STP ${(F.length?100*nAcc/F.length:0).toFixed(0)}%`;
- // left: field cards
- const fd=document.getElementById("fields"); fd.innerHTML="";
+   `${q.length} doc(s) · ${done} verified · ${nF} fields · ${nAcc} accepted · ${nRev} to review · STP ${nF?(100*nAcc/nF).toFixed(0):0}%`;
+}
+
+function renderQueue(){
+ const el=document.getElementById("queue"); el.innerHTML="";
+ STATE.queue.forEach((j,i)=>{
+  const c=document.createElement("div"); c.className="qchip "+j.status+(i===STATE.cur?" sel":"");
+  const icon=j.status==="done"?"✅":j.status==="running"?"⏳":j.status==="error"?"⛔":"•";
+  const stp=(j.status==="done"&&j.fields.length)?" · "+(100*j.fields.filter(f=>f.decision==="accept").length/j.fields.length).toFixed(0)+"%":"";
+  c.textContent=`${icon} ${j.name}${stp}`; c.title=j.error||j.name;
+  c.addEventListener("click",()=>{STATE.cur=i; render();});
+  el.appendChild(c);
+ });
+}
+
+function renderActive(){
+ const job=activeJob();
+ const fd=document.getElementById("fields"); const src=document.getElementById("source");
+ fd.innerHTML=""; src.classList.remove("err");
+ if(!job){ src.textContent="—"; return; }
+ if(job.status==="running"){ src.textContent="Verifying "+job.name+"…"; return; }
+ if(job.status==="error"){ src.classList.add("err"); src.textContent=job.error||"error"; return; }
+ const F=job.fields;
  F.forEach((f,i)=>{
-  const d=document.createElement("div"); d.className="field "+cls(f)+(i===STATE.sel?" sel":""); d.dataset.i=i;
+  const d=document.createElement("div"); d.className="field "+cls(f)+(i===job.sel?" sel":""); d.dataset.i=i;
   const conf=(f.confidence*100).toFixed(0);
   const where=f.grounding?(" · page "+f.grounding.page):" · not grounded";
   d.innerHTML=`<div class="top"><span class="path">${f.path}</span>`+
     `<span class="badge">${f.reviewed?"✔ confirmed":(f.decision==="accept"?"✅ accept":"⚠️ review")} · ${conf}%${where}</span></div>`+
     `<div class="bar"><i style="width:${conf}%;background:${f.decision==="accept"?"var(--ok)":"var(--rev)"}"></i></div>`;
   const inp=document.createElement("input"); inp.className="val"; inp.value=(f.value==null?"":f.value);
-  inp.addEventListener("input",e=>{f.value=e.target.value; f.edited=true;});
+  inp.addEventListener("input",e=>{f.value=e.target.value; f.edited=true; persist();});
   d.appendChild(inp);
   d.addEventListener("click",()=>select(i));
   fd.appendChild(d);
  });
- // right: source with highlights (text path only)
- const src=document.getElementById("source");
- if(STATE.text){
+ if(job.kind==="text"&&job.text){
   const spans=F.map((f,i)=>({i,s:f.grounding&&f.grounding.char_span?f.grounding.char_span[0]:-1,
                              e:f.grounding&&f.grounding.char_span?f.grounding.char_span[1]:-1,f}))
                 .filter(x=>x.s>=0&&x.e>x.s).sort((a,b)=>a.s-b.s);
   let html="",cur=0;
   for(const x of spans){ if(x.s<cur)continue;
-    html+=esc(STATE.text.slice(cur,x.s))+`<mark class="${cls(x.f)}" data-i="${x.i}" onclick="select(${x.i})">`+esc(STATE.text.slice(x.s,x.e))+"</mark>";
+    html+=esc(job.text.slice(cur,x.s))+`<mark class="${cls(x.f)}" data-i="${x.i}" onclick="select(${x.i})">`+esc(job.text.slice(x.s,x.e))+"</mark>";
     cur=x.e; }
-  html+=esc(STATE.text.slice(cur));
-  src.innerHTML=html||esc(STATE.text);
+  html+=esc(job.text.slice(cur));
+  src.innerHTML=html||esc(job.text);
  }else{
   src.innerHTML=`<div class="hint">Uploaded file — per-field grounding shown on the left (page/bbox). Paste text to see inline source highlighting.</div>`;
  }
@@ -137,30 +205,60 @@ function render(){
 function esc(s){return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
 
 function select(i){
- STATE.sel=i; render();
+ const job=activeJob(); if(!job)return;
+ job.sel=i; render();
  const mark=document.querySelector(`mark[data-i="${i}"]`);
  if(mark){mark.classList.add("flash");mark.scrollIntoView({block:"center",behavior:"smooth"});setTimeout(()=>mark.classList.remove("flash"),900);}
  const card=document.querySelector(`.field[data-i="${i}"]`);
  if(card)card.scrollIntoView({block:"nearest"});
 }
 
-function reviewIndices(){return STATE.fields.map((f,i)=>i).filter(i=>STATE.fields[i].decision==="review");}
+function reviewIndices(job){return job.fields.map((f,i)=>i).filter(i=>job.fields[i].decision==="review");}
 
 document.addEventListener("keydown",e=>{
+ const job=activeJob(); if(!job)return;
  if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA"){if(e.key!=="Enter")return;}
- const revs=reviewIndices(); if(!revs.length)return;
+ const revs=reviewIndices(job); if(!revs.length)return;
  if(e.key==="Tab"){e.preventDefault();
-  const pos=revs.indexOf(STATE.sel); const next=revs[(pos+(e.shiftKey?-1:1)+revs.length)%revs.length];
+  const pos=revs.indexOf(job.sel); const next=revs[(pos+(e.shiftKey?-1:1)+revs.length)%revs.length];
   select(next);
- }else if(e.key==="Enter"&&STATE.sel>=0){e.preventDefault();
-  STATE.fields[STATE.sel].reviewed=true; const revs2=reviewIndices().filter(i=>!STATE.fields[i].reviewed);
-  render(); if(revs2.length)select(revs2[0]);
+ }else if(e.key==="Enter"&&job.sel>=0){e.preventDefault();
+  job.fields[job.sel].reviewed=true; persist(); const rem=reviewIndices(job).filter(i=>!job.fields[i].reviewed);
+  render(); if(rem.length)select(rem[0]);
  }
 });
 
 function exportJSON(){
- const obj={}; for(const f of STATE.fields) obj[f.path]={value:f.value,confidence:f.confidence,decision:f.reviewed?"confirmed":f.decision,edited:!!f.edited};
+ const job=activeJob(); if(!job){alert("Nothing to export yet.");return;}
+ const obj={}; for(const f of job.fields) obj[f.path]={value:f.value,confidence:f.confidence,decision:f.reviewed?"confirmed":f.decision,edited:!!f.edited};
  const blob=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"});
- const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="verified.json"; a.click();
+ const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+ a.download=(job.name.replace(/[^\w.-]+/g,"_")||"verified")+".json"; a.click();
 }
+
+function clearQueue(){ STATE={queue:[],cur:-1}; for(const k in PENDING_FILES)delete PENDING_FILES[k]; localStorage.removeItem(LS_KEY); render(); }
+
+function persist(){
+ try{
+  const q=STATE.queue.map(j=>({id:j.id,name:j.name,kind:j.kind,text:j.text,
+    status:j.status==="running"?"pending":j.status,fields:j.fields,sel:j.sel,error:j.error}));
+  localStorage.setItem(LS_KEY,JSON.stringify({queue:q,cur:STATE.cur}));
+ }catch(e){/* storage full / disabled — degrade silently */}
+}
+
+function restore(){
+ try{
+  const raw=localStorage.getItem(LS_KEY); if(!raw)return false;
+  const data=JSON.parse(raw); if(!data||!data.queue||!data.queue.length)return false;
+  STATE.queue=data.queue.map(j=>{
+   if(j.status==="running")j.status="pending";
+   if(j.status!=="done"&&j.kind==="file"){j.status="error"; j.error="file not saved across reloads — re-add it";}
+   return j;
+  });
+  STATE.cur=(data.cur>=0&&data.cur<STATE.queue.length)?data.cur:(STATE.queue.length?0:-1);
+  return true;
+ }catch(e){return false;}
+}
+
+if(restore()) render(); else render();
 </script></body></html>
