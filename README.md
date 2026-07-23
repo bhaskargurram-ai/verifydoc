@@ -11,11 +11,11 @@
 [![GitHub stars](https://img.shields.io/github/stars/bhaskargurram-ai/verifydoc?style=flat)](https://github.com/bhaskargurram-ai/verifydoc/stargazers)
 [![Docs](https://img.shields.io/badge/docs-online-green.svg)](https://bhaskargurram-ai.github.io/verifydoc/)
 [![Live demo](https://img.shields.io/badge/demo-live-brightgreen.svg)](https://verifydoc-demo.web.app)
-[![Hugging Face Space](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Space-yellow.svg)](https://huggingface.co/spaces/bhaskargurram-ai/verifydoc)
+[![Hugging Face Space](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Space-yellow.svg)](https://huggingface.co/spaces/bhaskar1225/verifydoc)
 
 **Every other parser tells you *what* it read; VerifyDoc tells you *which values to trust*.**
 
-**▶ [Try the live demo](https://verifydoc-demo.web.app)** or **[🤗 the Hugging Face Space](https://huggingface.co/spaces/bhaskargurram-ai/verifydoc)** — no install: paste a receipt or upload a PDF and watch fields get accepted or routed to review. (Local extraction; for the Claude model, paste your own API key — it's used only for that request and never stored.)
+**▶ [Try the live demo](https://verifydoc-demo.web.app)** or **[🤗 the Hugging Face Space](https://huggingface.co/spaces/bhaskar1225/verifydoc)** — no install: paste a receipt or upload a PDF and watch fields get accepted or routed to review. (Local extraction; for the Claude model, paste your own API key — it's used only for that request and never stored.)
 
 > **🔒 Private by default — your documents never leave your machine.** Every extractor can run fully **local and offline** (RapidOCR, PaddleOCR, dots.ocr, Docling, or a local HF VLM); hosted API models are opt-in and comparison-only. Self-host the whole review app + API on your own infra, or call it from a **web app** or a **WhatsApp / Telegram bot** — the operator controls the data end to end.
 
