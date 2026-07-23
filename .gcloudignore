@@ -1,0 +1,16 @@
+.git/
+paper/
+data/
+results/
+.venv*/
+tests/
+benchmark/
+*.egg-info/
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.env
+.env.*
+docs/*.gif
+site/

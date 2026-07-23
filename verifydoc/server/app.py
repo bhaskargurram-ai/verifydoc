@@ -37,21 +37,33 @@ class VerifyRequest(BaseModel):
     adapter: str = "text-search"
     k: int = 1
     threshold: float = 0.8
+    api_key: str | None = None  # bring-your-own key for api-vlm; per-request, never stored
 
 
 # Adapters that keep documents on-box and need no API key — safe for a public demo.
 _DEMO_ADAPTERS = {"", "text-search", "rapidocr"}
 
 
-def _resolve_adapter(name: str) -> ExtractorAdapter | None:
+def _resolve_adapter(name: str, api_key: str | None = None) -> ExtractorAdapter | None:
     """None -> pipeline default (text-search); otherwise the named adapter.
 
-    In demo mode (``VERIFYDOC_DEMO`` set) only local, keyless adapters are allowed,
-    so a public instance can't be driven to a paid API or leak documents off-box.
+    Bring-your-own-key: if the request supplies an ``api_key`` for ``api-vlm``,
+    the adapter is built with that key (used for this request only, never stored)
+    — this is how a public demo offers the paid model without a shared key.
+
+    In demo mode (``VERIFYDOC_DEMO`` set), only local keyless adapters are allowed
+    unless the user brings their own key, so a public instance can't be driven to
+    a shared paid API or leak documents off-box.
     """
+    if name == "api-vlm" and api_key:
+        from verifydoc.adapters.api_vlm import AnthropicClient, APIVLMAdapter
+
+        return APIVLMAdapter(client=AnthropicClient(api_key=api_key))
     if os.environ.get("VERIFYDOC_DEMO") and name not in _DEMO_ADAPTERS:
         raise HTTPException(
-            status_code=400, detail=f"demo mode: only {sorted(_DEMO_ADAPTERS - {''})} allowed"
+            status_code=400,
+            detail="demo mode: use a local adapter, or select api-vlm and paste your own "
+            "Anthropic API key (used only for this request, never stored).",
         )
     if name in ("", "text-search"):
         return None
@@ -82,7 +94,7 @@ def build_app() -> FastAPI:
         result = verify(
             doc,
             req.schema_def,
-            adapter=_resolve_adapter(req.adapter),
+            adapter=_resolve_adapter(req.adapter, req.api_key),
             k=req.k,
             threshold=req.threshold,
         )
@@ -95,6 +107,7 @@ def build_app() -> FastAPI:
         adapter: Annotated[str, Form()] = "text-search",
         k: Annotated[int, Form()] = 1,
         threshold: Annotated[float, Form()] = 0.8,
+        api_key: Annotated[str | None, Form()] = None,
     ) -> dict[str, Any]:
         try:
             schema_def = json.loads(schema)
@@ -108,7 +121,11 @@ def build_app() -> FastAPI:
         try:
             doc = ingest_path(tmp_path)
             result = verify(
-                doc, schema_def, adapter=_resolve_adapter(adapter), k=k, threshold=threshold
+                doc,
+                schema_def,
+                adapter=_resolve_adapter(adapter, api_key),
+                k=k,
+                threshold=threshold,
             )
             return result.to_dict()
         finally:

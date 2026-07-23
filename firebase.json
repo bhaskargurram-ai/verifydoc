@@ -1,9 +1,10 @@
 {
   "hosting": {
+    "site": "verifydoc-demo",
     "public": "public",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "rewrites": [
-      { "source": "**", "run": { "serviceId": "verifydoc", "region": "us-central1" } }
+    "redirects": [
+      { "source": "**", "destination": "https://verifydoc-muhqsitvpq-uc.a.run.app", "type": 302 }
     ]
   }
 }
