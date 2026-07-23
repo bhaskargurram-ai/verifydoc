@@ -7,6 +7,8 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](pyproject.toml)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
+> **🔒 Private by default — your documents never leave your machine.** Every extractor can run fully **local and offline** (RapidOCR, PaddleOCR, dots.ocr, Docling, or a local HF VLM); hosted API models are opt-in and comparison-only. Self-host the whole review app + API on your own infra, or call it from a **web app** or a **WhatsApp / Telegram bot** — the operator controls the data end to end.
+
 ![VerifyDoc demo: a silently-wrong total is caught by grounding and routed to review](docs/demo.gif)
 
 *Above: a real pipeline run (`scripts/make_demo_gif.py`). The extractor returned `$1,432.50`; the page says `$1,234.50`. Grounding support drops to 0.78, the field misses the accept threshold, and the reviewer is pointed at the exact source region. The other three fields are auto-accepted.*
@@ -77,6 +79,21 @@ Schemas are plain JSON Schema, with each leaf optionally declaring **how it is s
   }
 }
 ```
+
+## Integrations
+
+VerifyDoc is a **drop-in trust layer** — it wraps whatever you already use. No framework is a hard dependency; the framework integrations work by duck typing (any `pydantic.BaseModel`, any `str -> dict` callable).
+
+| Where you work | How to add VerifyDoc | Guide |
+|---|---|---|
+| **Claude Code** | MCP server (`verifydoc-mcp`) + the bundled skill in `.claude/skills/verifydoc/` | [skill](.claude/skills/verifydoc/SKILL.md) · [MCP](examples/mcp/README.md) |
+| **Codex / Cursor / Cline / Claude Desktop** | point the client at `verifydoc-mcp` (stdio MCP) | [copy-paste configs](examples/mcp/README.md) |
+| **Instructor / Outlines / Marvin / Pydantic-AI** | `verify_instructor_result(text, obj)` — verify any extracted `BaseModel` | [quickstart](docs/QUICKSTART_INTEGRATIONS.md) |
+| **LangChain** | `VerifiedExtractor(chain.invoke, schema=...)` | [quickstart](docs/QUICKSTART_INTEGRATIONS.md) |
+| **LlamaIndex / DSPy / Haystack** | wrap your `str -> dict/BaseModel` step | [examples/](examples/) |
+| **Any REST client / web / mobile** | self-hosted FastAPI server + web app + WhatsApp/Telegram bots | [deploy](docs/DEPLOY.md) |
+
+See [`docs/QUICKSTART_INTEGRATIONS.md`](docs/QUICKSTART_INTEGRATIONS.md) for copy-paste snippets and [`examples/`](examples/) for runnable end-to-end scripts.
 
 ## What's inside
 
