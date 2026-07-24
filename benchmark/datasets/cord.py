@@ -132,7 +132,7 @@ def golds_from_gt_parse(gt_parse: dict[str, Any], schema: Schema, doc: Document)
                 value=value,
                 scoring=leaf.scoring if leaf else "exact",
                 numeric_tol=leaf.numeric_tol if leaf else 1e-6,
-                gold_box=_locate(str(value), doc, min_support=0.7, penalize_ambiguity=False),
+                gold_box=_locate(str(value), doc, min_support=0.7, penalty_mode="none"),
             )
         )
     return golds

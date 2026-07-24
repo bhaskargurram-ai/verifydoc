@@ -81,7 +81,7 @@ def generate(n_docs: int = 40, seed: int = 0) -> list[BenchDocument]:
         golds = []
         for leaf in schema.leaves:
             value = values[leaf.path]
-            gold_box = _locate(str(value), doc, min_support=0.99, penalize_ambiguity=False)
+            gold_box = _locate(str(value), doc, min_support=0.99, penalty_mode="none")
             golds.append(
                 FieldGold(
                     path=leaf.path,

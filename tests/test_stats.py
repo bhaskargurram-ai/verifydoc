@@ -5,6 +5,7 @@ import pytest
 
 from verifydoc.eval.stats import (
     bootstrap_ci,
+    cluster_bootstrap_ci,
     holm_bonferroni,
     paired_bootstrap_test,
     paired_permutation_test,
@@ -44,6 +45,35 @@ class TestBootstrapCI:
             bootstrap_ci(np.mean, [1.0], [1.0, 2.0])
         with pytest.raises(ValueError):
             bootstrap_ci(np.mean, [])
+
+
+class TestClusterBootstrap:
+    def test_point_matches_and_deterministic(self):
+        clusters = [i // 5 for i in range(50)]  # 10 clusters of 5
+        data = np.linspace(0, 1, 50)
+        a = cluster_bootstrap_ci(np.mean, clusters, data, seed=3)
+        b = cluster_bootstrap_ci(np.mean, clusters, data, seed=3)
+        assert a.point == pytest.approx(float(np.mean(data)))
+        assert (a.lo, a.hi) == (b.lo, b.hi)
+
+    def test_clustered_ci_wider_under_within_cluster_correlation(self):
+        # 20 documents, 10 fields each, all fields in a doc share the SAME value
+        # (maximal within-doc correlation): the effective N is 20 docs, not 200
+        # fields, so the document-clustered CI must be wider than the field CI.
+        rng = np.random.default_rng(0)
+        clusters, vals = [], []
+        for d in range(20):
+            v = float(rng.integers(0, 2))
+            clusters += [d] * 10
+            vals += [v] * 10
+        vals = np.array(vals)
+        field = bootstrap_ci(np.mean, vals, seed=1)
+        clust = cluster_bootstrap_ci(np.mean, clusters, vals, seed=1)
+        assert (clust.hi - clust.lo) > (field.hi - field.lo)
+
+    def test_validation(self):
+        with pytest.raises(ValueError):
+            cluster_bootstrap_ci(np.mean, [0, 1], [1.0])  # length mismatch
 
 
 class TestPairedTests:

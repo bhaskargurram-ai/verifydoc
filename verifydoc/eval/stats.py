@@ -99,6 +99,45 @@ def bootstrap_ci(
     )
 
 
+def cluster_bootstrap_ci(
+    statistic: Statistic,
+    clusters: Sequence[object],
+    *arrays: Sequence[float],
+    n_boot: int = 2000,
+    ci: float = 0.95,
+    seed: int = 0,
+) -> BootstrapResult:
+    """Percentile bootstrap CI that resamples *clusters* (e.g. documents), not
+    individual rows.
+
+    ``clusters[i]`` is the cluster id of row ``i``. Each replicate draws
+    ``n_clusters`` clusters with replacement and concatenates their rows, so
+    correlated fields within a document stay together. This gives honest
+    intervals when the exchangeable unit is the document, not the field — a
+    field-level bootstrap understates uncertainty under within-document
+    correlation (§5.H).
+    """
+    cols = [np.asarray(a) for a in arrays]
+    n = cols[0].shape[0]
+    if any(c.shape[0] != n for c in cols) or len(clusters) != n:
+        raise ValueError("clusters and all arrays must share the first dimension")
+    if n == 0:
+        raise ValueError("empty inputs")
+    cl = np.asarray(clusters)
+    uniq = np.unique(cl)
+    idx_by = {c: np.where(cl == c)[0] for c in uniq.tolist()}
+    rng = np.random.default_rng(seed)
+    point = float(statistic(*cols))
+    stats = np.empty(n_boot)
+    for b in range(n_boot):
+        chosen = rng.choice(uniq, size=uniq.shape[0], replace=True)
+        idx = np.concatenate([idx_by[c] for c in chosen.tolist()])
+        stats[b] = statistic(*(c[idx] for c in cols))
+    tail = (1.0 - ci) / 2.0
+    q: np.ndarray = np.quantile(stats, [tail, 1.0 - tail])
+    return BootstrapResult(point=point, lo=float(q[0]), hi=float(q[1]), ci=ci, n_boot=n_boot)
+
+
 def paired_permutation_test(
     scores_a: Sequence[float],
     scores_b: Sequence[float],
