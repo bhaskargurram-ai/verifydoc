@@ -135,9 +135,7 @@ def cluster_bootstrap_ci(
         stats[b] = statistic(*(c[idx] for c in cols))
     tail = (1.0 - ci) / 2.0
     q: np.ndarray = np.quantile(stats, [tail, 1.0 - tail])
-    return BootstrapResult(
-        point=point, lo=float(q[0]), hi=float(q[1]), ci=ci, n_boot=n_boot
-    )
+    return BootstrapResult(point=point, lo=float(q[0]), hi=float(q[1]), ci=ci, n_boot=n_boot)
 
 
 def paired_permutation_test(
