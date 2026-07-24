@@ -76,7 +76,7 @@ def golds_from_entities(entities: dict[str, Any], schema: Schema, doc: Document)
                 value=value,
                 scoring=leaf.scoring if leaf else "exact",
                 numeric_tol=leaf.numeric_tol if leaf else 1e-6,
-                gold_box=_locate(str(value), doc, min_support=0.6, penalize_ambiguity=False),
+                gold_box=_locate(str(value), doc, min_support=0.6, penalty_mode="none"),
             )
         )
     return golds

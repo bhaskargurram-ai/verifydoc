@@ -122,7 +122,7 @@ def golds_from_annotations(
             "numeric" if DOCILE_FIELDS[path]["type"] == "number" else "exact"
         )
         numeric_tol = leaf.numeric_tol if leaf else 1e-6
-        gold_box = _locate(value, doc, min_support=0.6, penalize_ambiguity=False)
+        gold_box = _locate(value, doc, min_support=0.6, penalty_mode="none")
         golds.append(
             FieldGold(
                 path=path,
