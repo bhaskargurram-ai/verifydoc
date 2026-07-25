@@ -95,17 +95,35 @@ def add_entailment(records):
     return records
 
 
+def _load_bench(dataset, split, limit):
+    if dataset == "cord":
+        from benchmark.datasets import cord
+
+        return cord.load(split=split or "train", limit=limit, with_images=True)
+    if dataset == "funsd":
+        from benchmark.datasets import funsd
+
+        return funsd.load(split=split or "testing", limit=limit)
+    if dataset == "xfund":
+        from benchmark.datasets import xfund
+
+        return xfund.load(lang="de", split=split or "val", limit=limit)
+    raise SystemExit(f"unsupported dataset {dataset!r} (cord|funsd|xfund)")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--dataset", default="cord")
     ap.add_argument("--limit", type=int, default=400)
-    ap.add_argument("--split", default="train")
+    ap.add_argument("--split", default=None)
     ap.add_argument("--k", type=int, default=5)
     ap.add_argument("--workers", type=int, default=8)
+    ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
-    from benchmark.datasets import cord
-
-    bench = cord.load(split=args.split, limit=args.limit, with_images=True)
+    global CACHE
+    CACHE = Path(args.out) if args.out else Path(f"data/apivlm_perfield_rich_{args.dataset}.json")
+    bench = _load_bench(args.dataset, args.split, args.limit)
     adapter = APIVLMAdapter()  # default claude-sonnet-5, reads ANTHROPIC_API_KEY
     records: list[dict] = []
     done = 0

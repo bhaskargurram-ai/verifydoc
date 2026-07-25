@@ -31,6 +31,12 @@ results:
 	$(PY) scripts/grouped_conformal_experiment.py
 	$(PY) scripts/grounded_conformal_real.py
 	$(PY) scripts/annotator_agreement.py
+	# Genuine-VLM multi-dataset scale run (needs cached rich dumps in data/;
+	# regenerate them with scripts/apivlm_perfield_rich.py --dataset {cord,funsd,xfund}).
+	$(PY) scripts/phase2_method.py --dump data/apivlm_perfield_rich_cord.json  --out results/phase2_cord.json
+	$(PY) scripts/phase2_method.py --dump data/apivlm_perfield_rich_funsd.json --out results/phase2_funsd.json
+	$(PY) scripts/phase2_method.py --dump data/apivlm_perfield_rich_xfund.json --out results/phase2_xfund.json
+	$(PY) scripts/make_realvlm_table.py
 
 
 demo:
