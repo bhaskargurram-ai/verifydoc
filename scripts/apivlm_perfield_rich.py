@@ -95,7 +95,7 @@ def add_entailment(records):
     return records
 
 
-def _load_bench(dataset, split, limit):
+def _load_bench(dataset, split, limit, lang="de"):
     if dataset == "cord":
         from benchmark.datasets import cord
 
@@ -107,7 +107,7 @@ def _load_bench(dataset, split, limit):
     if dataset == "xfund":
         from benchmark.datasets import xfund
 
-        return xfund.load(lang="de", split=split or "val", limit=limit)
+        return xfund.load(lang=lang, split=split or "val", limit=limit)
     raise SystemExit(f"unsupported dataset {dataset!r} (cord|funsd|xfund)")
 
 
@@ -119,12 +119,27 @@ def main() -> None:
     ap.add_argument("--k", type=int, default=5)
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--out", default=None)
+    ap.add_argument("--lang", default="de", help="xfund language (de/fr/es/it/ja/zh/pt)")
+    ap.add_argument(
+        "--provider", default="anthropic", help="anthropic | openai (vllm via OPENAI_BASE_URL)"
+    )
+    ap.add_argument("--model", default=None, help="override model id (e.g. claude-haiku-4-5)")
     args = ap.parse_args()
 
     global CACHE
-    CACHE = Path(args.out) if args.out else Path(f"data/apivlm_perfield_rich_{args.dataset}.json")
-    bench = _load_bench(args.dataset, args.split, args.limit)
-    adapter = APIVLMAdapter()  # default claude-sonnet-5, reads ANTHROPIC_API_KEY
+    if args.out:
+        CACHE = Path(args.out)
+    else:
+        # default name carries dataset, non-default xfund lang, and non-default model
+        # (xfund de keeps the legacy bare name so `make results` stays stable)
+        tag = args.dataset
+        if args.dataset == "xfund" and args.lang != "de":
+            tag = f"xfund_{args.lang}"
+        if args.model:
+            tag += "_" + args.model.replace("/", "-").replace(".", "-")
+        CACHE = Path(f"data/apivlm_perfield_rich_{tag}.json")
+    bench = _load_bench(args.dataset, args.split, args.limit, lang=args.lang)
+    adapter = APIVLMAdapter(provider=args.provider, model=args.model)  # reads ANTHROPIC_API_KEY
     records: list[dict] = []
     done = 0
     with ThreadPoolExecutor(max_workers=args.workers) as ex:
