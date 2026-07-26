@@ -1,4 +1,4 @@
-"""Attach groundings by locating each predicted value in the document.
+﻿"""Attach groundings by locating each predicted value in the document.
 
 For every prediction without a grounding, search the text layer for the
 value: best matching word window gives the bbox (union) and the page text
@@ -10,6 +10,7 @@ is exactly the hallucination smell the policy layer should flag.
 
 from __future__ import annotations
 
+import math
 import re
 
 from verifydoc.eval.extraction import normalize_text, normalized_levenshtein_similarity
@@ -37,6 +38,7 @@ def ground_predictions(
     doc: Document,
     min_support: float = MIN_SUPPORT,
     penalize_ambiguity: bool = True,
+    penalty_mode: str = "uniform",
 ) -> list[FieldPrediction]:
     """Return copies with grounding attached where the value can be located.
 
@@ -44,19 +46,66 @@ def ground_predictions(
     match at multiple places — the right behavior for grounding-as-confidence.
     Set False for pure annotation (locate a known-correct value regardless of
     how many times it appears).
+
+    ``penalty_mode`` sets the down-weighting form when a value matches ``m``
+    equally-good locations (ablation knob; see :func:`ambiguity_penalty`):
+    ``"uniform"`` (default) uses ``1/m`` — the posterior P(true source) under a
+    uniform prior over the ``m`` matches; ``"sqrt"`` (``1/√m``) and ``"log"``
+    (``1/(1+ ln m)``) are softer; ``"softmax"`` and ``"entropy"`` are two more
+    ablation forms (see :func:`ambiguity_penalty`); ``"none"`` disables it.
     """
+    mode = "none" if not penalize_ambiguity else penalty_mode
     out = []
     for pred in predictions:
         if pred.grounding is not None or pred.value is None:
             out.append(pred)
             continue
-        grounding = _locate(str(pred.value), doc, min_support, penalize_ambiguity)
+        grounding = _locate(str(pred.value), doc, min_support, mode)
         out.append(pred if grounding is None else pred.model_copy(update={"grounding": grounding}))
     return out
 
 
+def ambiguity_penalty(score: float, n_matches: int, mode: str) -> float:
+    """Discount a match ``score`` by the ambiguity of its location (``n_matches``
+    equally-good places). ``uniform`` = ``score/m`` is the calibrated estimate:
+    under a uniform prior over the ``m`` equally-good matches, exactly one being
+    the true source, P(a given match is the source) = ``1/m``, so ``score/m``
+    estimates P(correct provenance). ``sqrt``/``log`` are softer monotone
+    alternatives; ``none`` leaves the score unpenalized.
+
+    Two more ablation forms:
+
+    ``softmax`` treats the winning match as one outcome of a softmax over the
+    ``m`` tied candidates, where the winner's logit is its raw ``score`` and
+    each of the other ``m - 1`` candidates sits at a neutral baseline logit of
+    0 (they are equally-good matches, but carry no extra evidence beyond
+    "present"). The discount is the resulting posterior mass on the winner,
+    ``exp(score) / (exp(score) + (m - 1))`` — unlike the ``m``-only forms
+    above, it also depends on how strong the raw match score is: a stronger
+    match is discounted less harshly for the same amount of ambiguity.
+
+    ``entropy`` uses the Shannon entropy, in bits, of a uniform prior over the
+    ``m`` tied matches (``log2(m)``), in the same soft-denominator shape as
+    ``log`` (which uses nats): ``score / (1 + log2(m))``.
+    """
+    if n_matches <= 1 or mode == "none":
+        return score
+    if mode == "sqrt":
+        return score / (n_matches**0.5)
+    if mode == "log":
+        return score / (1.0 + math.log(n_matches))
+    if mode == "uniform":
+        return score / n_matches
+    if mode == "softmax":
+        weight = math.exp(score)
+        return score * weight / (weight + (n_matches - 1))
+    if mode == "entropy":
+        return score / (1.0 + math.log2(n_matches))
+    raise ValueError(f"unknown penalty_mode {mode!r} (none|uniform|sqrt|log|softmax|entropy)")
+
+
 def _locate(
-    value: str, doc: Document, min_support: float, penalize_ambiguity: bool = True
+    value: str, doc: Document, min_support: float, penalty_mode: str = "uniform"
 ) -> Grounding | None:
     target = _normalize_for_match(value)
     if not target:
@@ -70,10 +119,10 @@ def _locate(
         bbox, score, n_matches = found
         # Ambiguity penalty: a value that matches equally well at n distinct
         # places (short/common tokens like a bare "2") is not reliably located,
-        # so its provenance is uncertain. Discounting support by 1/n turns a
-        # coincidental match into low confidence -> review, instead of a
-        # falsely-confident grounding. (Grounding-sweep P2; the CORD failure mode.)
-        support = score / n_matches if penalize_ambiguity else score
+        # so its provenance is uncertain. Discounting support turns a coincidental
+        # match into low confidence -> review, instead of a falsely-confident
+        # grounding. (Grounding-sweep P2; the CORD failure mode.)
+        support = ambiguity_penalty(score, n_matches, penalty_mode)
         if support >= best_support:
             best = Grounding(
                 page=page.page,
