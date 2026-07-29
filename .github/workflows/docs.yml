@@ -28,7 +28,7 @@ jobs:
       # not --strict: some docs link to repo files (CONTRIBUTING, examples/) that
       # live outside the docs tree and render on GitHub, not the site.
       - run: mkdocs build
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
